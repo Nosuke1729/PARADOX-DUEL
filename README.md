@@ -2,6 +2,8 @@
 
 過去4秒の自分を Echo として再生しながら戦う、2D 横視点の 1 対 1 アクションゲームです。
 
+[GitHub Pages でプレイ](https://nosuke1729.github.io/PARADOX-DUEL/)
+
 ## プレイ
 
 ```bash
