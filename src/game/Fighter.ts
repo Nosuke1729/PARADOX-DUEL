@@ -1,0 +1,144 @@
+import Phaser from 'phaser'
+import { CHARACTERS, WEAPONS } from './balance'
+import { EchoRecorder } from './EchoRecorder'
+import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
+
+const WIDTH = 34
+const HEIGHT = 56
+export class Fighter {
+  readonly sprite: Phaser.Physics.Arcade.Sprite
+  readonly recorder = new EchoRecorder()
+  readonly slot: Slot
+  readonly color: number
+  readonly loadout: Loadout
+  hp: number
+  facing: -1 | 1
+  attackFrame = 0
+  attackId = 0
+  dashFrames = 0
+  dashCooldown = 0
+  echoCooldown = 0
+  skillCooldown = 0
+  shieldFrames = 0
+  dropFrames = 0
+  stunFrames = 0
+  hurtCooldown = 0
+
+  constructor(scene: Phaser.Scene, slot: Slot, loadout: Loadout) {
+    this.slot = slot
+    this.loadout = loadout
+    this.hp = CHARACTERS[loadout.character].hp
+    this.color = slot === 1 ? 0x58e5e1 : 0xff6b6f
+    this.facing = slot === 1 ? 1 : -1
+    const x = slot === 1 ? 210 : 750
+    this.sprite = scene.physics.add.sprite(x, WORLD.floorY - HEIGHT / 2, `fighter-${loadout.character}`)
+    this.sprite.setTint(this.color).setCollideWorldBounds(true).setDragX(0).setMaxVelocity(1000, 1000)
+    this.sprite.body?.setSize(WIDTH, HEIGHT)
+  }
+
+  get body(): Phaser.Physics.Arcade.Body { return this.sprite.body as Phaser.Physics.Arcade.Body }
+  get x(): number { return this.sprite.x }
+  get y(): number { return this.sprite.y }
+  get grounded(): boolean { return this.body.blocked.down || this.body.touching.down }
+  get weapon() { return WEAPONS[this.loadout.weapon] }
+  get isAttacking(): boolean {
+    return this.attackFrame >= this.weapon.startup + 1 && this.attackFrame <= this.weapon.startup + this.weapon.active
+  }
+  get firesProjectile(): boolean { return this.loadout.weapon === 'blaster' && this.attackFrame === this.weapon.startup + 1 }
+
+  step(held: Controls, pressed: Controls): void {
+    if (this.hp <= 0) { this.body.setVelocityX(0); return }
+    this.dashCooldown = Math.max(0, this.dashCooldown - 1)
+    this.echoCooldown = Math.max(0, this.echoCooldown - 1)
+    this.skillCooldown = Math.max(0, this.skillCooldown - 1)
+    this.shieldFrames = Math.max(0, this.shieldFrames - 1)
+    this.dropFrames = Math.max(0, this.dropFrames - 1)
+    this.stunFrames = Math.max(0, this.stunFrames - 1)
+    this.hurtCooldown = Math.max(0, this.hurtCooldown - 1)
+    if (this.attackFrame > 0) this.attackFrame = this.attackFrame >= this.weapon.total ? 0 : this.attackFrame + 1
+    if (this.dashFrames > 0) this.dashFrames--
+    const config = CHARACTERS[this.loadout.character]
+    const direction = Number(held.right) - Number(held.left)
+    if (direction !== 0 && this.dashFrames === 0 && this.stunFrames === 0) this.facing = direction as -1 | 1
+    if (this.stunFrames === 0) {
+      if (pressed.dash && this.dashCooldown === 0) { this.dashFrames = 9; this.dashCooldown = 80 }
+      this.body.setVelocityX(this.dashFrames > 0 ? this.facing * config.dashSpeed :
+        direction * (this.grounded ? config.moveSpeed : config.airSpeed))
+      if (pressed.jump && this.grounded && this.dropFrames === 0) this.body.setVelocityY(-config.jumpSpeed)
+      if (pressed.attack && this.attackFrame === 0) { this.attackFrame = 1; this.attackId++ }
+    }
+    this.sprite.setFlipX(this.facing < 0)
+    this.sprite.setAlpha(this.hurtCooldown > 0 && this.hurtCooldown % 6 < 3 ? 0.55 : 1)
+  }
+
+  teleport(x: number, y = this.y): void {
+    this.sprite.setPosition(Phaser.Math.Clamp(x, 18, WORLD.width - 18), Phaser.Math.Clamp(y, 30, WORLD.floorY - 28))
+    this.body.updateFromGameObject()
+    this.body.setVelocity(0)
+  }
+  blink(other: Fighter): boolean {
+    for (let distance = 128; distance >= 32; distance -= 16) {
+      const next = Phaser.Math.Clamp(this.x + this.facing * distance, 32, WORLD.width - 32)
+      if (Math.abs(next - other.x) < WIDTH + 8 && Math.abs(this.y - other.y) < HEIGHT) continue
+      this.teleport(next)
+      return true
+    }
+    return false
+  }
+  hit(damage: number, direction: -1 | 1, force = 1): { x: number; y: number; blocked: boolean } {
+    if (this.shieldFrames > 0) return { x: 0, y: 0, blocked: true }
+    this.hp = Math.max(0, this.hp - damage)
+    const resistance = CHARACTERS[this.loadout.character].knockback
+    const x = direction * 330 * resistance * force
+    const y = -205 * resistance * force
+    this.body.setVelocity(x, y)
+    this.stunFrames = 13
+    this.hurtCooldown = 30
+    this.dashFrames = 0
+    return { x, y, blocked: false }
+  }
+  applyHit(hp: number, x: number, y: number, blocked = false): void {
+    this.hp = Math.max(0, Math.min(CHARACTERS[this.loadout.character].hp, hp))
+    if (blocked) return
+    this.body.setVelocity(x, y)
+    this.stunFrames = 13
+    this.hurtCooldown = 30
+    this.dashFrames = 0
+  }
+  frame(): Frame {
+    return { x: Math.round(this.x * 10) / 10, y: Math.round(this.y * 10) / 10,
+      vx: Math.round(this.body.velocity.x), vy: Math.round(this.body.velocity.y), facing: this.facing,
+      attackFrame: this.attackFrame, attackId: this.attackId, dash: this.dashFrames > 0 }
+  }
+  state(): FighterState {
+    return { ...this.frame(), hp: this.hp, hurtCooldown: this.hurtCooldown, echoCooldown: this.echoCooldown,
+      dashCooldown: this.dashCooldown, skillCooldown: this.skillCooldown, shieldFrames: this.shieldFrames, grounded: this.grounded }
+  }
+  applyState(state: FighterState, snapPosition: boolean): void {
+    if (snapPosition) this.sprite.setPosition(state.x, state.y)
+    this.body.setVelocity(state.vx, state.vy)
+    this.hp = state.hp; this.hurtCooldown = state.hurtCooldown; this.facing = state.facing
+    this.attackFrame = state.attackFrame; this.attackId = state.attackId
+    this.echoCooldown = state.echoCooldown; this.dashCooldown = state.dashCooldown
+    this.skillCooldown = state.skillCooldown; this.shieldFrames = state.shieldFrames
+    this.sprite.setFlipX(this.facing < 0)
+  }
+  interpolateTo(state: FighterState, factor: number): void {
+    this.sprite.setPosition(Phaser.Math.Linear(this.x, state.x, factor), Phaser.Math.Linear(this.y, state.y, factor))
+    this.body.updateFromGameObject()
+    this.facing = state.facing; this.attackFrame = state.attackFrame; this.attackId = state.attackId
+    this.hp = state.hp; this.hurtCooldown = state.hurtCooldown; this.shieldFrames = state.shieldFrames
+    this.sprite.setFlipX(this.facing < 0)
+  }
+  record(): void { this.recorder.push(this.frame()) }
+  reset(): void {
+    this.hp = CHARACTERS[this.loadout.character].hp
+    this.facing = this.slot === 1 ? 1 : -1
+    this.attackFrame = 0; this.attackId = 0; this.dashFrames = 0; this.dashCooldown = 0
+    this.echoCooldown = 0; this.skillCooldown = 0; this.shieldFrames = 0
+    this.dropFrames = 0; this.stunFrames = 0; this.hurtCooldown = 0
+    this.recorder.clear()
+    this.teleport(this.slot === 1 ? 210 : 750, WORLD.floorY - HEIGHT / 2)
+  }
+  destroy(): void { this.sprite.destroy() }
+}

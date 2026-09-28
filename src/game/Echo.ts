@@ -1,0 +1,51 @@
+import Phaser from 'phaser'
+import { WEAPONS } from './balance'
+import { type Character, type EchoPacket, type Frame, type Slot, type Weapon } from './types'
+
+export class Echo {
+  readonly packet: EchoPacket
+  readonly sprite: Phaser.GameObjects.Sprite
+  private readonly outline: Phaser.GameObjects.Graphics
+  readonly owner: Slot
+  readonly weapon: Weapon
+  private index = 0
+  private current: Frame
+  private offsetX = 0
+  private offsetY = 0
+  constructor(scene: Phaser.Scene, packet: EchoPacket, weapon: Weapon, character: Character) {
+    this.packet = packet; this.owner = packet.owner; this.weapon = weapon
+    this.current = packet.frames[0]
+    this.sprite = scene.add.sprite(this.current.x, this.current.y, `fighter-${character}`)
+      .setTint(packet.owner === 1 ? 0x58e5e1 : 0xff6b6f).setAlpha(0.38).setDepth(4)
+    this.outline = scene.add.graphics().setDepth(5)
+    this.drawOutline()
+  }
+  get x(): number { return this.current.x + this.offsetX }
+  get y(): number { return this.current.y + this.offsetY }
+  get facing(): -1 | 1 { return this.current.facing }
+  get attackId(): number { return this.current.attackId }
+  get isAttacking(): boolean {
+    const config = WEAPONS[this.weapon]
+    return this.current.attackFrame >= config.startup + 1 && this.current.attackFrame <= config.startup + config.active
+  }
+  get firesProjectile(): boolean { return this.weapon === 'blaster' && this.current.attackFrame === WEAPONS.blaster.startup + 1 }
+  get finished(): boolean { return this.index >= this.packet.frames.length }
+  step(): void {
+    if (this.finished) return
+    this.current = this.packet.frames[this.index++]
+    this.sprite.setPosition(this.x, this.y).setFlipX(this.current.facing < 0)
+    this.drawOutline()
+  }
+  seek(index: number): void { this.index = Phaser.Math.Clamp(index, 0, this.packet.frames.length); if (!this.finished) this.step() }
+  relocate(x: number, y: number): void {
+    this.offsetX += x - this.x; this.offsetY += y - this.y
+    this.sprite.setPosition(this.x, this.y)
+    this.drawOutline()
+  }
+  private drawOutline(): void {
+    const color = this.owner === 1 ? 0x58e5e1 : 0xff6b6f
+    this.outline.clear().lineStyle(2, color, 0.85).strokeRoundedRect(this.x - 22, this.y - 32, 44, 64, 5)
+    this.outline.fillStyle(color, 0.65).fillTriangle(this.x - 5, this.y - 43, this.x + 5, this.y - 43, this.x, this.y - 35)
+  }
+  destroy(): void { this.sprite.destroy(); this.outline.destroy() }
+}

@@ -1,19 +1,67 @@
 # PARADOX DUEL
 
-A lightweight 1v1 online action-game prototype.
+過去4秒の自分を Echo として再生しながら戦う、2D 横視点の 1 対 1 アクションゲームです。
 
-## Current prototype
-
-- Create or join a room with a short room code
-- Two-player presence tracking with Supabase Realtime Presence
-- Real-time movement and attack events with Supabase Realtime Broadcast
-- Browser-based arena built with TypeScript + Vite
-
-## Local development
+## プレイ
 
 ```bash
-npm install
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-The Supabase publishable key used by the browser is intentionally a client-safe publishable key. Never commit a Supabase secret/service-role key.
+ブラウザで表示されたローカル URL を開いてください。`PRACTICE` はネットワーク設定なしで遊べます。オンラインの部屋作成・参加には `.env.local` の `VITE_SUPABASE_URL` と `VITE_SUPABASE_PUBLISHABLE_KEY` を実際の Supabase プロジェクトへ合わせます。**secret / service-role key をブラウザに設定しないでください。** `.env.local` は Git の対象外です。
+
+| キー | 操作 |
+| --- | --- |
+| A / D | 左右移動 |
+| Space / W | ジャンプ |
+| S | 足場を降りる |
+| J | 選んだ武器で攻撃 |
+| K | ダッシュ |
+| L | 直前4秒を再生する Echo |
+| I | 選んだ Skill を発動 |
+
+オンライン対戦は `CREATE ROOM` で6文字のコードを発行し、相手が `JOIN` で入力します。PCキーボード向けです。ラウンドは75秒、2本先取。タイムアップでは最大HPに対する残りHPの割合が多い側が勝ち、同率は引き分けでラウンドをやり直します。試合前にキャラクター・武器・Skillを各1つ選択します。ロビーで互いの構成を同期し、試合中は固定です。`PRACTICE` の相手は HEAVY / SPEAR / SHIELD です。
+対戦中は画面右上の `EXIT MATCH` からいつでもメニューに戻れます。
+
+移動とジャンプは速いテンポに調整しています。床から中央の台までは150pxで、ジャンプの最高到達点は STANDARD 約223px、LIGHT 約277px、HEAVY 約192pxです。
+
+## ロードアウト
+
+| Character | 性能 | 説明 |
+| --- | --- | --- |
+| STANDARD | HP 100 / 標準速度 / 標準攻撃力 | 速度・耐久・攻撃力のバランスがよい。どの構成にも合わせやすい。 |
+| LIGHT | HP 78 / 高速 / 低攻撃力 | 移動・ジャンプ・ダッシュが速く、Echoとの位置調整に強い。ノックバックを受けやすい。 |
+| HEAVY | HP 130 / 低速 / 高攻撃力 | 高耐久・高威力。吹き飛ばされにくい。 |
+
+| Weapon | 攻撃 | 説明 |
+| --- | --- | --- |
+| SWORD | 近距離・速い斬撃 | 射程は短いが扱いやすい。 |
+| SPEAR | 中距離・遅い突き | 長いリーチで間合いを取れる。 |
+| BLASTER | 遠距離・弾 | 威力が低く発生も遅いが、離れた相手へ届く。Echoも弾を発射する。 |
+
+| Skill | 再使用 | 説明 |
+| --- | --- | --- |
+| BLINK | 8 秒 | 向いている方向へ短距離瞬間移動する。 |
+| SHIELD | 10 秒 | 約0.8秒間、ダメージとノックバックを防ぐ。 |
+| SHOCKWAVE | 12 秒 | 近くの敵を吹き飛ばす。ダメージは小さい。 |
+| ECHO SWAP | 10 秒 | 出現中の自分のEchoと位置を入れ替える。Echoがいないと使用できない。 |
+
+## Supabase の準備
+
+1. プロジェクトの Auth で **Anonymous Sign-Ins** を有効にします。恒久アカウントは不要ですが、各ブラウザを一意に識別するために使います。
+2. [`supabase/migrations/20260928082725_duel_rooms.sql`](supabase/migrations/20260928082725_duel_rooms.sql) を適用します。このリポジトリが接続する既存の `PARADOX DUEL` プロジェクトには適用済みです。
+3. `.env.local` にそのプロジェクトの URL と **publishable key** を設定します。
+4. Realtime の private channel と room membership RLS が使われます。部屋を作れない場合は Auth と `Realtime → Policies`、ブラウザのエラー表示を確認してください。
+
+Room code は招待用です。対戦中は部屋を作成した端末が移動・命中・HP・結果を確定し、参加端末へスナップショットを送ります。友人対戦を対象としており、ホストによる改造を防ぐ構成ではありません。Ranked にはサーバー権威の別構成が必要です。
+
+## 開発
+
+```bash
+npm test
+npm run build
+```
+
+設計の判断、MVP の条件、テスト方針は [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) にあります。Ranked、アイテム、Skill tree はまだありません。
