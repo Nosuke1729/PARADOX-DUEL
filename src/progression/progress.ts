@@ -103,7 +103,7 @@ export function syncUnlocks(progress: PlayerProgress): ProgressEvent[] {
   progress.unlockedColors = Object.keys(COLORS).filter(id => canUse(progress, 'color', id))
   progress.selectedLoadout = sanitizeLoadout(progress, progress.selectedLoadout)
   return UNLOCK_RULES.filter(rule => canUse(progress, rule.kind, rule.id) && !before.has(`${rule.kind}:${rule.id}`))
-    .map(rule => ({ kind: 'unlock', title: 'SYSTEM UNLOCKED', detail: `${rule.name} / ${rule.kind.toUpperCase()}` }))
+    .map(rule => ({ kind: 'unlock', title: '使えるものが増えました！', detail: `${rule.name} / ${rule.kind === 'character' ? 'キャラ' : rule.kind === 'weapon' ? '武器' : rule.kind === 'attack' ? '攻撃' : rule.kind === 'skill' ? 'スキル' : '色'}` }))
 }
 export function sanitizeLoadout(progress: PlayerProgress, value: unknown): Loadout {
   const input = record(value)
@@ -131,7 +131,7 @@ function awardXp(progress: PlayerProgress, amount: number): ProgressEvent[] {
     const previous = progress.playerLevel
     progress.currentXp -= xpForNextLevel(previous)
     progress.playerLevel++
-    events.push({ kind: 'level', title: 'LEVEL UP', detail: `LV.${previous} → LV.${progress.playerLevel}` })
+    events.push({ kind: 'level', title: 'レベルアップ！', detail: `レベル ${previous} → ${progress.playerLevel}` })
   }
   return events
 }
@@ -144,7 +144,7 @@ export function awardMastery(progress: PlayerProgress, character: Character, amo
     const previous = entry.level
     entry.currentXp -= masteryXpForNext(previous)
     entry.level++
-    events.push({ kind: 'mastery', title: 'MASTERY UP', detail: `${CHARACTERS[character].name} LV.${previous} → LV.${entry.level}` })
+    events.push({ kind: 'mastery', title: '使いこなしてきた！', detail: `${CHARACTERS[character].name} 熟練度 ${previous} → ${entry.level}` })
   }
   return events
 }
@@ -158,7 +158,7 @@ export function awardStoryVictory(progress: PlayerProgress, chapterId: number, c
   const coins = firstClear ? chapter.rewardCoins : Math.max(10, Math.round(chapter.rewardCoins * 0.25))
   progress.coins += coins
   const events: ProgressEvent[] = [
-    { kind: 'unlock', title: firstClear ? 'CHAPTER CLEARED' : 'MISSION COMPLETE', detail: `+${xp} XP / +${coins} COINS` },
+    { kind: 'unlock', title: firstClear ? 'ステージクリア！' : 'もう一度クリア！', detail: `+${xp} XP / +${coins} コイン` },
     ...awardXp(progress, xp), ...awardMastery(progress, character, firstClear ? 75 + chapterId * 15 : 25),
   ]
   events.push(...syncUnlocks(progress))

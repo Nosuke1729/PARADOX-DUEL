@@ -33,7 +33,7 @@ export class CloudProgress {
       const { data: { user }, error } = await supabaseClient().auth.getUser()
       if (error) throw error
       if (user && !user.is_anonymous) await this.link(user, local)
-    } catch (error) { this.onStatus(error instanceof Error ? error.message : 'ACCOUNT CONNECTION FAILED') }
+    } catch (error) { this.onStatus(error instanceof Error ? error.message : 'アカウントに接続できませんでした。') }
   }
 
   async signUp(email: string, password: string, username: string, local: PlayerProgress): Promise<string> {
@@ -47,9 +47,9 @@ export class CloudProgress {
     if (error) throw error
     if (data.session && data.user) {
       await this.link(data.user, local)
-      return 'AUTHENTICATION COMPLETE / CLOUD LINK ESTABLISHED'
+      return '登録できました。セーブデータを読み込みました。'
     }
-    return '確認メールを送信しました。認証後、LOG INしてください。'
+    return '確認メールを送りました。メールを開いてからログインしてください。'
   }
 
   async logIn(email: string, password: string, local: PlayerProgress): Promise<void> {
@@ -126,7 +126,7 @@ export class CloudProgress {
     try {
       await this.saving
     } catch {
-      this.onStatus('CLOUD SAVE FAILED / LOCAL BACKUP CREATED')
+      this.onStatus('クラウドに保存できませんでした。この端末にはバックアップを残しました。')
     } finally { this.saving = undefined }
     if (this.pending) await this.flush()
   }
@@ -159,6 +159,6 @@ export class CloudProgress {
       this.pending = choice.progress
       await this.flush()
     }
-    this.onStatus('CLOUD LINK ESTABLISHED')
+    this.onStatus('セーブデータを読み込みました。')
   }
 }

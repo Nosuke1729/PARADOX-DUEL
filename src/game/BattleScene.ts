@@ -616,22 +616,22 @@ export class BattleScene extends Phaser.Scene {
     const [p1, p2] = this.fighters
     this.drawBar(30, 32, p1.hp, p1.maxHp, p1.color, false)
     this.drawBar(670, 32, p2.hp, p2.maxHp, p2.color, true)
-    if (this.storyAI && this.options.story?.boss) this.rightText.setText(`${this.options.story.enemyName} / PHASE ${this.storyAI.phase(p2)}`)
+    if (this.storyAI && this.options.story?.boss) this.rightText.setText(`${this.options.story.enemyName} / 後半 ${this.storyAI.phase(p2)}`)
     for (let n = 0; n < this.wins[0]; n++) this.hud.fillStyle(p1.color).fillCircle(44 + n * 18, 80, 6)
     for (let n = 0; n < this.wins[1]; n++) this.hud.fillStyle(p2.color).fillCircle(916 - n * 18, 80, 6)
     this.topText.setText(`${Math.ceil(this.timer / 60)}`)
     const local = this.fighters[(this.options.room?.slot ?? 1) - 1]
     const echoLabel = !local.recorder.ready()
       ? `記録中 ${Math.ceil(local.recorder.remaining() / 60)}s`
-      : local.echoCooldown ? `ECHO ${Math.ceil(local.echoCooldown / 60)}s` : 'ECHO READY'
+      : local.echoCooldown ? `分身 ${Math.ceil(local.echoCooldown / 60)}秒` : '分身 OK'
     const skillName = SKILLS[local.loadout.skill].name
     const skillLabel = local.skillCooldown ? `${skillName} ${Math.ceil(local.skillCooldown / 60)}s` :
-      local.loadout.skill === 'echo_swap' && !this.echoes.some(echo => echo.owner === local.slot) ? `${skillName} / Echo必要` : `${skillName} READY`
+      local.loadout.skill === 'echo_swap' && !this.echoes.some(echo => echo.owner === local.slot) ? `${skillName} / 分身が必要` : `${skillName} OK`
     this.bottomText.setText(this.connectionLost ? '接続が切れました。再接続しています…' :
-      `${echoLabel}    •    ${skillLabel}    •    A/D 移動  SPACE ジャンプ  S 降下  J 攻撃  K ダッシュ  L Echo  I Skill`)
+      `${echoLabel}    •    ${skillLabel}    •    A/D 移動  SPACE ジャンプ  S 降下  J 攻撃  K ダッシュ  L 分身  I スキル`)
     if (this.phase === 'countdown') this.centerText.setText(this.matchId ? `${Math.max(1, Math.ceil(this.phaseFrames / 60))}` : '接続中')
-    else if (this.phase === 'round_end') this.centerText.setText('ROUND END')
-    else if (this.phase === 'match_end') this.centerText.setText('MATCH END')
+    else if (this.phase === 'round_end') this.centerText.setText('ラウンド終了')
+    else if (this.phase === 'match_end') this.centerText.setText('対戦終了')
     else this.centerText.setText('')
     for (const fighter of this.fighters) {
       if (fighter.shieldFrames > 0) this.attacks.lineStyle(3, fighter.color, 0.8).strokeCircle(fighter.x, fighter.y, 42)

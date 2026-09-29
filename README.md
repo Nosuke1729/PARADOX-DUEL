@@ -1,6 +1,6 @@
-# PARADOX DUEL
+# 影分身ファイターズ
 
-過去4秒の自分を Echo として再生しながら戦う、2D 横視点の 1 対 1 アクションゲームです。
+4秒前の自分を分身として呼び出し、一緒に戦う2D横視点の対戦アクションゲームです。リポジトリ名と公開URLは従来の `PARADOX-DUEL` のままです。
 
 [GitHub Pages でプレイ](https://nosuke1729.github.io/PARADOX-DUEL/)
 
@@ -25,7 +25,7 @@ npm run dev
 | I | 選んだ Skill を発動 |
 
 オンライン対戦は `ONLINE → PRIVATE ROOM → CREATE ROOM` で6文字のコードを発行し、相手が `JOIN` で入力します。PCキーボード向けです。ラウンドは75秒、2本先取。タイムアップでは最大HPに対する残りHPの割合が多い側が勝ち、同率は引き分けでラウンドをやり直します。試合前に `FIGHTER` で Character・Weapon・Attack・Skill を選択します。ロビーで互いの構成を同期し、試合中は固定です。`PRACTICE` の相手は HEAVY / SPEAR / SHIELD です。
-対戦中は画面右上の `EXIT MATCH` からいつでもメニューに戻れます。
+対戦中は画面右上の「対戦をやめる」からいつでもメニューに戻れます。
 
 移動とジャンプは速いテンポに調整しています。床から中央の台までは150pxで、ジャンプの最高到達点は STANDARD 約223px、LIGHT 約277px、HEAVY 約192pxです。
 
@@ -46,7 +46,7 @@ npm run dev
 | ARC CYAN | STANDARD Mastery Lv.2 |
 | UPPER SLASH | STANDARD Mastery Lv.4 |
 
-Chapter 1 `AWAKENING`、2 `SPEED`、3 `RANGE`、4 `POWER`、5 `ECHO` が遊べます。AI難易度は推奨値か EASY / NORMAL / HARD を選べます。初回クリアはChapterごとのXPとCoinsを獲得し、再クリアでも少額を獲得します。Player Lv.1→2には100 XP、以後必要XPはレベルごとに50ずつ増えます。
+ストーリーは「まずは練習」「すばしっこい相手」「遠くから来るやつ」「でっかい相手」「分身どうしで大騒ぎ」の5ステージです。AI難易度はおまかせ・やさしい・ふつう・むずかしいから選べます。初回クリアはステージごとのXPとコインを獲得し、再クリアでも少額を獲得します。レベル1→2には100 XP、以後必要XPはレベルごとに50ずつ増えます。
 
 未ログイン時の進行状況はこのブラウザーの `localStorage` に保存します（キー `paradox-duel:progress:v1`）。メールアドレスとパスワードでACCOUNTを作成し、確認メールの認証後にログインすると、既存のローカル進行を初回だけCloudへ移します。以後はCloudを優先し、同じブラウザーにもバックアップを保存します。別端末で同じアカウントにログインするとCloudの進行を復元します。Cloud保存が失敗した場合は画面に警告を出し、ローカルバックアップを保持します。複数端末で同時に進行を更新した場合はリビジョン競合として保存を止め、XPやCoinsを二重加算しません。
 
