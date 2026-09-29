@@ -9,6 +9,7 @@ import { EMPTY_CONTROLS, RULES, WORLD, type AttackStyle, type Controls, type Ech
 import type { InputPacket, RoomManager } from '../network/RoomManager'
 import { StoryAI } from '../story/StoryAI'
 import type { StoryChapter } from '../story/chapters'
+import { weaponPose } from './AttackVisual'
 
 export interface BattleOptions {
   mode: 'practice' | 'online' | 'story'
@@ -407,8 +408,13 @@ export class BattleScene extends Phaser.Scene {
 
   private setPhase(phase: Phase, winner?: Slot): void {
     this.phase = phase
+    if (phase === 'round_end' || phase === 'match_end') this.stopRoundMotion()
     this.options.room?.sendEvent({ kind: 'phase', matchId: this.matchId, round: this.round,
       phase, timer: this.timer, wins: [...this.wins], winner })
+  }
+
+  private stopRoundMotion(): void {
+    for (const fighter of this.fighters) fighter.stopRoundMotion()
   }
 
   private snapshot(): Snapshot {
@@ -480,6 +486,7 @@ export class BattleScene extends Phaser.Scene {
       local.shieldFrames = state.shieldFrames
       local.dashCooldown = state.dashCooldown
     }
+    if (this.phase === 'round_end' || this.phase === 'match_end') this.stopRoundMotion()
     if (this.phase === 'match_end') this.announceMatchEnd()
   }
 
@@ -520,6 +527,7 @@ export class BattleScene extends Phaser.Scene {
       fighter.skillCooldown = SKILLS[event.skill].cooldown
     } else if (event.kind === 'phase' && event.matchId === this.matchId) {
       this.phase = event.phase
+      if (event.phase === 'round_end' || event.phase === 'match_end') this.stopRoundMotion()
       this.timer = event.timer
       this.wins = [...event.wins]
       if (event.phase === 'match_end') soundFX.play('match')
@@ -626,12 +634,11 @@ export class BattleScene extends Phaser.Scene {
     else this.centerText.setText('')
     for (const fighter of this.fighters) {
       if (fighter.shieldFrames > 0) this.attacks.lineStyle(3, fighter.color, 0.8).strokeCircle(fighter.x, fighter.y, 42)
-      if (fighter.loadout.weapon !== 'blaster' && fighter.isAttacking) this.drawAttack(fighter.x, fighter.y, fighter.facing, fighter.loadout.weapon, fighter.color, 0.45, fighter.loadout.attack)
-      else if (fighter.loadout.weapon !== 'blaster' && fighter.attackFrame > 0 && fighter.attackFrame <= fighter.weapon.startup)
-        this.drawAttack(fighter.x, fighter.y, fighter.facing, fighter.loadout.weapon, fighter.color, 0.07, fighter.loadout.attack)
+      if (fighter.loadout.weapon !== 'blaster' && fighter.isAttacking) this.drawAttack(fighter.x, fighter.y, fighter.facing,
+        fighter.loadout.weapon, fighter.color, 0.8, fighter.attackFrame, fighter.loadout.attack)
     }
     for (const echo of this.echoes) if (echo.isAttacking && echo.weapon !== 'blaster') this.drawAttack(echo.x, echo.y, echo.facing, echo.weapon,
-      this.fighters[echo.owner - 1].color, 0.22, echo.attack)
+      this.fighters[echo.owner - 1].color, 0.36, echo.attackFrame, echo.attack)
     for (const projectile of this.projectiles) {
       const color = this.fighters[projectile.owner - 1].color
       this.attacks.fillStyle(color, 0.18).fillCircle(projectile.x, projectile.y, 14)
@@ -647,9 +654,43 @@ export class BattleScene extends Phaser.Scene {
       y, 260 * hp / maxHp, 21, 4)
   }
 
-  private drawAttack(x: number, y: number, facing: -1 | 1, weapon: Weapon, color: number, alpha: number, attack?: AttackStyle): void {
-    const rect = attackRect(x, y, facing, weapon, attack)
-    this.attacks.fillStyle(color, alpha).fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 8)
-    this.attacks.lineStyle(2, color, alpha + 0.35).strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 8)
+  private drawAttack(x: number, y: number, facing: -1 | 1, weapon: Weapon, color: number, alpha: number,
+    frame: number, attack?: AttackStyle): void {
+    const config = attackFor(weapon, attack)
+    const progress = Math.min(1, Math.max(0, (frame - config.startup - 1) / Math.max(1, config.active - 1)))
+    if (weapon === 'spear' && attack !== 'spear_sweep' || weapon === 'dagger') {
+      const near = weapon === 'spear' ? 38 : 26
+      const far = near + (config.reach - near) * (0.7 + progress * 0.3)
+      this.attacks.lineStyle(weapon === 'spear' ? 4 : 3, color, alpha)
+        .lineBetween(x + facing * near, y - 5, x + facing * far, y - 5)
+      this.attacks.fillStyle(0xffffff, alpha).fillTriangle(x + facing * (far + 10), y - 5,
+        x + facing * (far - 4), y - 10, x + facing * (far - 4), y)
+      return
+    }
+    const radius = weapon === 'hammer' ? 69 : weapon === 'fan' ? 53 : weapon === 'spear' ? 80 :
+      attack === 'heavy_slash' ? 73 : attack === 'upper_slash' ? 57 : 64
+    const firstAngle = weaponPose(weapon, attack, config.startup + 1).rotation
+    const lastAngle = weaponPose(weapon, attack, frame).rotation
+    const trail = Math.max(0.15, Math.abs(lastAngle - firstAngle))
+    const start = lastAngle - Math.sign(lastAngle - firstAngle || 1) * Math.min(trail, 0.65)
+    const drawArc = (distance: number, width: number, opacity: number): void => {
+      this.attacks.lineStyle(width, color, opacity).beginPath()
+      for (let index = 0; index <= 8; index++) {
+        const angle = start + (lastAngle - start) * index / 8
+        const px = x + facing * (10 + Math.cos(angle) * distance)
+        const py = y - 4 + Math.sin(angle) * distance
+        if (index === 0) this.attacks.moveTo(px, py)
+        else this.attacks.lineTo(px, py)
+      }
+      this.attacks.strokePath()
+    }
+    drawArc(radius, weapon === 'hammer' ? 7 : 5, alpha * 0.55)
+    drawArc(radius + 5, 2, alpha)
+    if (weapon === 'fan') { drawArc(radius - 13, 2, alpha * 0.75); drawArc(radius + 14, 2, alpha * 0.55) }
+    if (weapon === 'hammer') {
+      const tipX = x + facing * (10 + Math.cos(lastAngle) * radius)
+      const tipY = y - 4 + Math.sin(lastAngle) * radius
+      this.attacks.lineStyle(2, 0xffffff, alpha * 0.7).strokeCircle(tipX, tipY, 8 + progress * 10)
+    }
   }
 }

@@ -3,6 +3,7 @@ import { attackFor } from './balance'
 import { type AttackStyle, type Character, type EchoPacket, type Frame, type Slot, type Weapon } from './types'
 import { clampFighterPosition } from './position'
 import { ensureFighterArt } from './FighterArt'
+import { placeWeapon } from './AttackVisual'
 
 export class Echo {
   readonly packet: EchoPacket
@@ -31,6 +32,7 @@ export class Echo {
   get y(): number { return clampFighterPosition(this.current.x + this.offsetX, this.current.y + this.offsetY).y }
   get facing(): -1 | 1 { return this.current.facing }
   get attackId(): number { return this.current.attackId }
+  get attackFrame(): number { return this.current.attackFrame }
   get isAttacking(): boolean {
     const config = attackFor(this.weapon, this.attack)
     return this.current.attackFrame >= config.startup + 1 && this.current.attackFrame <= config.startup + config.active
@@ -50,8 +52,9 @@ export class Echo {
     this.drawOutline()
   }
   private syncArt(): void {
-    for (const part of [this.sprite, this.weaponSprite, this.hatSprite])
+    for (const part of [this.sprite, this.hatSprite])
       part.setPosition(this.x, this.y).setFlipX(this.current.facing < 0)
+    placeWeapon(this.weaponSprite, this.x, this.y, this.current.facing, this.weapon, this.attack, this.current.attackFrame)
   }
   private drawOutline(): void {
     const color = this.color

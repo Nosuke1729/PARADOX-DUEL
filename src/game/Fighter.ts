@@ -5,6 +5,7 @@ import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type
 import { COLORS } from '../progression/catalog'
 import { resetFighterBody } from './position'
 import { ensureFighterArt } from './FighterArt'
+import { placeWeapon } from './AttackVisual'
 
 const WIDTH = 34
 const HEIGHT = 56
@@ -141,10 +142,16 @@ export class Fighter {
     this.sprite.setFlipX(this.facing < 0)
   }
   record(): void { this.recorder.push(this.frame()) }
+  stopRoundMotion(): void {
+    this.body.setVelocityX(0)
+    this.body.setAccelerationX(0)
+    this.dashFrames = 0
+    this.attackFrame = 0
+  }
   private syncArt(): void {
-    for (const part of [this.weaponSprite, this.hatSprite]) {
-      part.setPosition(this.x, this.y).setFlipX(this.facing < 0).setAlpha(this.sprite.alpha)
-    }
+    placeWeapon(this.weaponSprite, this.x, this.y, this.facing, this.loadout.weapon, this.loadout.attack, this.attackFrame)
+    this.weaponSprite.setAlpha(this.sprite.alpha)
+    this.hatSprite.setPosition(this.x, this.y).setFlipX(this.facing < 0).setAlpha(this.sprite.alpha)
   }
   reset(): void {
     this.hp = this.maxHp

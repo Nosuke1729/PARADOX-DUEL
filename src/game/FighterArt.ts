@@ -60,8 +60,9 @@ function bodyCanvas(character: Character, color: number): HTMLCanvasElement {
     // The balanced fighter has a jacket, separate arms and a clear face.
     box(ctx, 7, 46, 8, 10, outline); box(ctx, 22, 46, 8, 10, outline)
     box(ctx, 8, 47, 6, 7, shade); box(ctx, 23, 47, 6, 7, shade)
-    box(ctx, 2, 25, 7, 19, outline); box(ctx, 27, 25, 7, 19, outline)
-    box(ctx, 4, 26, 4, 14, paint(color)); box(ctx, 28, 26, 4, 14, paint(color))
+    // The far arm is part of the body; the near arm belongs to the weapon pose.
+    box(ctx, 2, 25, 7, 19, outline)
+    box(ctx, 4, 26, 4, 14, paint(color))
     box(ctx, 7, 22, 23, 27, outline); box(ctx, 9, 24, 19, 22, paint(color))
     box(ctx, 11, 25, 4, 16, light); box(ctx, 20, 25, 4, 16, shade)
     box(ctx, 8, 3, 20, 19, outline); box(ctx, 10, 5, 16, 16, light)
@@ -78,9 +79,12 @@ function weaponCanvas(weapon: Weapon, color: number): HTMLCanvasElement {
   const steel = '#d9eaf1'
   const shine = '#ffffff'
   const accent = paint(color)
-  stroke(ctx, 9, -10, 22, -5, 8, edge)
-  stroke(ctx, 9, -10, 22, -5, 5, accent)
-  box(ctx, 19, -9, 9, 8, edge); box(ctx, 21, -8, 6, 5, steel)
+  // The arm starts at the jacket's shoulder, bends at the elbow, then grips the hilt.
+  stroke(ctx, 10, -4, 17, 3, 9, edge)
+  stroke(ctx, 10, -4, 17, 3, 6, accent)
+  stroke(ctx, 17, 3, 25, -5, 8, edge)
+  stroke(ctx, 17, 3, 25, -5, 5, accent)
+  box(ctx, 21, -9, 9, 8, edge); box(ctx, 23, -8, 5, 5, steel)
   switch (weapon) {
     case 'sword':
       stroke(ctx, 26, -5, 38, -5, 6, '#374456')
