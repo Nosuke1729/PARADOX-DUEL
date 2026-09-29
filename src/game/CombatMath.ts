@@ -1,12 +1,12 @@
-import { WEAPONS } from './balance'
-import type { Weapon } from './types'
+import { attackFor } from './balance'
+import type { AttackStyle, Weapon } from './types'
 
 export interface Rect { x: number; y: number; width: number; height: number }
-export function attackRect(x: number, y: number, facing: -1 | 1, weapon: Weapon = 'sword'): Rect {
-  const config = WEAPONS[weapon]
+export function attackRect(x: number, y: number, facing: -1 | 1, weapon: Weapon = 'sword', style?: AttackStyle): Rect {
+  const config = attackFor(weapon, style)
   return {
     x: facing > 0 ? x + 15 : x - 15 - config.reach,
-    y: y - config.height / 2 - (weapon === 'spear' ? 5 : 9),
+    y: y - config.height / 2 - (weapon === 'spear' ? 5 : 9) + (config.verticalOffset ?? 0),
     width: config.reach,
     height: config.height,
   }

@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
-import { WEAPONS } from './balance'
-import { type Character, type EchoPacket, type Frame, type Slot, type Weapon } from './types'
+import { attackFor } from './balance'
+import { type AttackStyle, type Character, type EchoPacket, type Frame, type Slot, type Weapon } from './types'
 
 export class Echo {
   readonly packet: EchoPacket
@@ -8,12 +8,13 @@ export class Echo {
   private readonly outline: Phaser.GameObjects.Graphics
   readonly owner: Slot
   readonly weapon: Weapon
+  readonly attack?: AttackStyle
   private index = 0
   private current: Frame
   private offsetX = 0
   private offsetY = 0
-  constructor(scene: Phaser.Scene, packet: EchoPacket, weapon: Weapon, character: Character) {
-    this.packet = packet; this.owner = packet.owner; this.weapon = weapon
+  constructor(scene: Phaser.Scene, packet: EchoPacket, weapon: Weapon, character: Character, attack?: AttackStyle) {
+    this.packet = packet; this.owner = packet.owner; this.weapon = weapon; this.attack = attack
     this.current = packet.frames[0]
     this.sprite = scene.add.sprite(this.current.x, this.current.y, `fighter-${character}`)
       .setTint(packet.owner === 1 ? 0x58e5e1 : 0xff6b6f).setAlpha(0.38).setDepth(4)
@@ -25,10 +26,10 @@ export class Echo {
   get facing(): -1 | 1 { return this.current.facing }
   get attackId(): number { return this.current.attackId }
   get isAttacking(): boolean {
-    const config = WEAPONS[this.weapon]
+    const config = attackFor(this.weapon, this.attack)
     return this.current.attackFrame >= config.startup + 1 && this.current.attackFrame <= config.startup + config.active
   }
-  get firesProjectile(): boolean { return this.weapon === 'blaster' && this.current.attackFrame === WEAPONS.blaster.startup + 1 }
+  get firesProjectile(): boolean { return this.weapon === 'blaster' && this.current.attackFrame === attackFor(this.weapon, this.attack).startup + 1 }
   get finished(): boolean { return this.index >= this.packet.frames.length }
   step(): void {
     if (this.finished) return

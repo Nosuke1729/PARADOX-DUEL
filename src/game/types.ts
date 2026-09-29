@@ -3,10 +3,11 @@ export type Phase = 'menu' | 'lobby' | 'countdown' | 'playing' | 'round_end' | '
 export type Character = 'standard' | 'light' | 'heavy'
 export type Weapon = 'sword' | 'spear' | 'blaster'
 export type Skill = 'blink' | 'shield' | 'shockwave' | 'echo_swap'
+export type AttackStyle = 'basic_slash' | 'heavy_slash' | 'upper_slash' | 'spear_thrust' | 'blaster_shot'
 
-export interface Loadout { character: Character; weapon: Weapon; skill: Skill }
-export const DEFAULT_LOADOUT: Loadout = { character: 'standard', weapon: 'sword', skill: 'blink' }
-export const BOT_LOADOUT: Loadout = { character: 'heavy', weapon: 'spear', skill: 'shield' }
+export interface Loadout { character: Character; weapon: Weapon; skill: Skill; attack?: AttackStyle; color?: string }
+export const DEFAULT_LOADOUT: Loadout = { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash' }
+export const BOT_LOADOUT: Loadout = { character: 'heavy', weapon: 'spear', skill: 'shield', attack: 'spear_thrust' }
 
 export interface Controls {
   left: boolean; right: boolean; down: boolean; jump: boolean

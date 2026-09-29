@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { CHARACTERS, WEAPONS } from './balance'
+import { attackFor, CHARACTERS } from './balance'
 import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
 
@@ -11,6 +11,7 @@ export class Fighter {
   readonly slot: Slot
   readonly color: number
   readonly loadout: Loadout
+  readonly maxHp: number
   hp: number
   facing: -1 | 1
   attackFrame = 0
@@ -24,11 +25,12 @@ export class Fighter {
   stunFrames = 0
   hurtCooldown = 0
 
-  constructor(scene: Phaser.Scene, slot: Slot, loadout: Loadout) {
+  constructor(scene: Phaser.Scene, slot: Slot, loadout: Loadout, hpMultiplier = 1) {
     this.slot = slot
     this.loadout = loadout
-    this.hp = CHARACTERS[loadout.character].hp
-    this.color = slot === 1 ? 0x58e5e1 : 0xff6b6f
+    this.maxHp = Math.round(CHARACTERS[loadout.character].hp * hpMultiplier)
+    this.hp = this.maxHp
+    this.color = slot === 1 ? loadout.color === 'arc_cyan' ? 0x9cfaff : 0x58e5e1 : 0xff6b6f
     this.facing = slot === 1 ? 1 : -1
     const x = slot === 1 ? 210 : 750
     this.sprite = scene.physics.add.sprite(x, WORLD.floorY - HEIGHT / 2, `fighter-${loadout.character}`)
@@ -40,7 +42,7 @@ export class Fighter {
   get x(): number { return this.sprite.x }
   get y(): number { return this.sprite.y }
   get grounded(): boolean { return this.body.blocked.down || this.body.touching.down }
-  get weapon() { return WEAPONS[this.loadout.weapon] }
+  get weapon() { return attackFor(this.loadout.weapon, this.loadout.attack) }
   get isAttacking(): boolean {
     return this.attackFrame >= this.weapon.startup + 1 && this.attackFrame <= this.weapon.startup + this.weapon.active
   }
@@ -98,7 +100,7 @@ export class Fighter {
     return { x, y, blocked: false }
   }
   applyHit(hp: number, x: number, y: number, blocked = false): void {
-    this.hp = Math.max(0, Math.min(CHARACTERS[this.loadout.character].hp, hp))
+    this.hp = Math.max(0, Math.min(this.maxHp, hp))
     if (blocked) return
     this.body.setVelocity(x, y)
     this.stunFrames = 13
@@ -132,7 +134,7 @@ export class Fighter {
   }
   record(): void { this.recorder.push(this.frame()) }
   reset(): void {
-    this.hp = CHARACTERS[this.loadout.character].hp
+    this.hp = this.maxHp
     this.facing = this.slot === 1 ? 1 : -1
     this.attackFrame = 0; this.attackId = 0; this.dashFrames = 0; this.dashCooldown = 0
     this.echoCooldown = 0; this.skillCooldown = 0; this.shieldFrames = 0

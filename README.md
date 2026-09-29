@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-ブラウザで表示されたローカル URL を開いてください。`PRACTICE` はネットワーク設定なしで遊べます。オンラインの部屋作成・参加には `.env.local` の `VITE_SUPABASE_URL` と `VITE_SUPABASE_PUBLISHABLE_KEY` を実際の Supabase プロジェクトへ合わせます。**secret / service-role key をブラウザに設定しないでください。** `.env.local` は Git の対象外です。
+ブラウザで表示されたローカル URL を開いてください。`STORY` と `PRACTICE` はネットワーク設定なしで遊べます。オンラインの部屋作成・参加には `.env.local` の `VITE_SUPABASE_URL` と `VITE_SUPABASE_PUBLISHABLE_KEY` を実際の Supabase プロジェクトへ合わせます。**secret / service-role key をブラウザに設定しないでください。** `.env.local` は Git の対象外です。
 
 | キー | 操作 |
 | --- | --- |
@@ -24,12 +24,33 @@ npm run dev
 | L | 直前4秒を再生する Echo |
 | I | 選んだ Skill を発動 |
 
-オンライン対戦は `CREATE ROOM` で6文字のコードを発行し、相手が `JOIN` で入力します。PCキーボード向けです。ラウンドは75秒、2本先取。タイムアップでは最大HPに対する残りHPの割合が多い側が勝ち、同率は引き分けでラウンドをやり直します。試合前にキャラクター・武器・Skillを各1つ選択します。ロビーで互いの構成を同期し、試合中は固定です。`PRACTICE` の相手は HEAVY / SPEAR / SHIELD です。
+オンライン対戦は `ONLINE → PRIVATE ROOM → CREATE ROOM` で6文字のコードを発行し、相手が `JOIN` で入力します。PCキーボード向けです。ラウンドは75秒、2本先取。タイムアップでは最大HPに対する残りHPの割合が多い側が勝ち、同率は引き分けでラウンドをやり直します。試合前に `FIGHTER` で Character・Weapon・Attack・Skill を選択します。ロビーで互いの構成を同期し、試合中は固定です。`PRACTICE` の相手は HEAVY / SPEAR / SHIELD です。
 対戦中は画面右上の `EXIT MATCH` からいつでもメニューに戻れます。
 
 移動とジャンプは速いテンポに調整しています。床から中央の台までは150pxで、ジャンプの最高到達点は STANDARD 約223px、LIGHT 約277px、HEAVY 約192pxです。
 
 ## ロードアウト
+
+新規プレイヤーは STANDARD / SWORD / BASIC SLASH / BLINK で開始します。ロック中の選択肢と解放条件は `FIGHTER` に表示されます。Story は1勝でChapterクリア、PracticeとPrivate Roomは従来の2本先取です。
+
+| 解放 | 条件 |
+| --- | --- |
+| SPEAR | Player Lv.3 |
+| LIGHT | Chapter 2 のLIGHT Bossを撃破 |
+| SHIELD | Player Lv.7 |
+| HEAVY SLASH | Player Lv.10 または STANDARD Mastery Lv.3 |
+| BLASTER | Player Lv.12 |
+| HEAVY | Chapter 4 のHEAVY Bossを撃破、またはPlayer Lv.15 |
+| SHOCKWAVE | Player Lv.18 |
+| ECHO SWAP | Chapter 5 クリア |
+| ARC CYAN | STANDARD Mastery Lv.2 |
+| UPPER SLASH | STANDARD Mastery Lv.4 |
+
+Chapter 1 `AWAKENING`、2 `SPEED`、3 `RANGE`、4 `POWER`、5 `ECHO` が遊べます。AI難易度は推奨値か EASY / NORMAL / HARD を選べます。初回クリアはChapterごとのXPとCoinsを獲得し、再クリアでも少額を獲得します。Player Lv.1→2には100 XP、以後必要XPはレベルごとに50ずつ増えます。
+
+進行状況、装備、熟練度、戦績はこのブラウザーの `localStorage` に保存します（キー `paradox-duel:progress:v1`）。別端末やブラウザーへの同期は未実装です。Private Roomではレベル・Coins・MasteryによるHP/攻撃力/速度補正を掛けません。Attack Styleは解放した選択肢として使えます。正式なRankedはまだ実装していません。
+
+解放条件は [`src/progression/catalog.ts`](src/progression/catalog.ts)、Chapter/報酬/Bossは [`src/story/chapters.ts`](src/story/chapters.ts)、AI難易度は [`src/story/StoryAI.ts`](src/story/StoryAI.ts) で変更できます。将来のアカウント同期向けに進行状態は [`src/progression/progress.ts`](src/progression/progress.ts) の単一モデルにまとめています。既存のSupabase対戦用DBには変更を加えていません。
 
 | Character | 性能 | 説明 |
 | --- | --- | --- |
@@ -66,4 +87,4 @@ npm test
 npm run build
 ```
 
-設計の判断、MVP の条件、テスト方針は [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) にあります。Ranked、アイテム、Skill tree はまだありません。
+設計の判断、MVP の条件、テスト方針は [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) にあります。Ranked、Shop、ガチャ、アカウント間の進行同期はまだありません。
