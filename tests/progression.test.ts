@@ -78,6 +78,16 @@ test('later unlocks use level, boss and mastery conditions without changing onli
     [{ character: 'standard', weapon: 'sword', skill: 'blink' }, { character: 'light', weapon: 'sword', skill: 'blink' }]), undefined)
 })
 
+test('HEAVY SLASH trades sustained damage and startup for a stronger single hit', () => {
+  const basic = attackFor('sword', 'basic_slash')
+  const heavy = attackFor('sword', 'heavy_slash')
+  assert.ok(heavy.damage > basic.damage)
+  assert.ok(heavy.damage <= basic.damage * 1.5)
+  assert.ok(heavy.startup >= basic.startup * 2.5)
+  assert.ok(heavy.damage / heavy.total < basic.damage / basic.total)
+  assert.ok((heavy.knockback ?? 1) > (basic.knockback ?? 1))
+})
+
 test('eleven story stages are configured and AI range adapts to weapon', () => {
   assert.equal(STORY_CHAPTERS.length, 11)
   const ai = new StoryAI('normal', undefined, () => 0.99)

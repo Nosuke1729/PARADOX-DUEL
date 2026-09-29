@@ -34,7 +34,7 @@ export const SKILLS: Record<Skill, SkillConfig> = {
 }
 export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   basic_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'BASIC SLASH', subtitle: '標準', description: '素早く振るう標準の斬撃。' },
-  heavy_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'HEAVY SLASH', subtitle: '強撃', description: '発生と硬直は長いが、威力と吹き飛ばしが強い。', startup: 17, active: 5, total: 48, damage: 22, reach: 82, knockback: 1.45 },
+  heavy_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'HEAVY SLASH', subtitle: '強撃', description: '振り始めがかなり遅く、外すと大きな隙。当てれば強く吹き飛ばす。', startup: 21, active: 5, total: 54, damage: 18, reach: 82, knockback: 1.3 },
   upper_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'UPPER SLASH', subtitle: '対空', description: '頭上の敵を捉える縦方向の斬撃。', startup: 10, active: 6, total: 34, damage: 12, reach: 53, height: 88, verticalOffset: -27 },
   spear_thrust: { ...WEAPONS.spear, weapon: 'spear', name: 'SPEAR THRUST', subtitle: '標準', description: '長いリーチの突き。距離を保って戦う。' },
   spear_sweep: { ...WEAPONS.spear, weapon: 'spear', name: 'SPEAR SWEEP', subtitle: '広め', description: '槍を横に払う。突きより短いけれど上下に当てやすい。', startup: 15, active: 8, total: 43, damage: 12, reach: 96, height: 68 },
