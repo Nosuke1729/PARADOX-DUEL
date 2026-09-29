@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { attackCycleFrames, attackFor, CHARACTERS, damageFor, isLoadout, winnerByHealth } from '../src/game/balance'
+import { attackCycleFrames, attackFor, CHARACTERS, damageFor, isLoadout, nextAirJumpUse, winnerByHealth } from '../src/game/balance'
 import { STORY_CHAPTERS } from '../src/story/chapters'
 import { StoryAI } from '../src/story/StoryAI'
 import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, storyReward, xpForNextLevel } from '../src/progression/progress'
@@ -101,7 +101,7 @@ test('HEAVY trades slower attack cycles for a modest damage and health advantage
 
 test('story AI waits for the HEAVY attack cycle before another strike', () => {
   const ai = new StoryAI('hard', undefined, () => 0)
-  const bot = { x: 500, y: 400, hp: 118, maxHp: 118, attackFrame: 0, grounded: true,
+  const bot = { x: 500, y: 400, hp: 118, maxHp: 118, attackFrame: 0, grounded: true, airJumpsUsed: 0,
     loadout: { character: 'heavy' as const, weapon: 'spear' as const }, echoCooldown: 0, skillCooldown: 0,
     recorder: { ready: () => false } }
   const player = { ...bot, x: 450, loadout: { character: 'standard' as const, weapon: 'sword' as const } }
@@ -121,11 +121,11 @@ test('later story replays pay a useful but capped coin reward', () => {
   assert.equal(progress.coins, 72)
 })
 
-test('fourteen story stages are configured and AI range adapts to weapon', () => {
-  assert.equal(STORY_CHAPTERS.length, 14)
+test('fifteen story stages are configured and AI range adapts to weapon', () => {
+  assert.equal(STORY_CHAPTERS.length, 15)
   const ai = new StoryAI('normal', undefined, () => 0.99)
   const fighter = (weapon: 'sword' | 'blaster' | 'whip' | 'yoyo') => ({
-    x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true,
+    x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true, airJumpsUsed: 0,
     loadout: { character: 'standard' as const, weapon }, echoCooldown: 0, skillCooldown: 0, recorder: { ready: () => false },
   })
   const player = fighter('sword'); player.x = 350
@@ -137,4 +137,34 @@ test('fourteen story stages are configured and AI range adapts to weapon', () =>
   assert.equal(whip.input(fighter('whip'), player, 13).held.left, false)
   const yoyo = new StoryAI('normal', undefined, () => 0.99)
   assert.equal(yoyo.input(fighter('yoyo'), player, 13).held.left, true)
+})
+
+test('HOPPER has one extra air jump and unlocks after its story boss', () => {
+  assert.equal(nextAirJumpUse('standard', false, 0), undefined)
+  assert.equal(nextAirJumpUse('hopper', true, 0), 0)
+  assert.equal(nextAirJumpUse('hopper', false, 0), 1)
+  assert.equal(nextAirJumpUse('hopper', false, 1), undefined)
+  assert.ok(CHARACTERS.hopper.moveSpeed < CHARACTERS.standard.moveSpeed)
+  assert.ok(CHARACTERS.hopper.airSpeed > CHARACTERS.standard.airSpeed)
+  assert.ok(damageFor({ character: 'hopper', weapon: 'sword', skill: 'blink' }) <
+    damageFor({ character: 'standard', weapon: 'sword', skill: 'blink' }))
+  const ai = new StoryAI('hard', STORY_CHAPTERS[14].boss, () => 0)
+  const bot = { x: 500, y: 400, hp: 90, maxHp: 90, attackFrame: 0, grounded: true, airJumpsUsed: 0,
+    loadout: { character: 'hopper' as const, weapon: 'fan' as const }, echoCooldown: 0, skillCooldown: 0,
+    recorder: { ready: () => false } }
+  const player = { ...bot, x: 420, loadout: { character: 'standard' as const, weapon: 'sword' as const } }
+  assert.equal(ai.input(bot, player, 1).pressed.jump, true)
+  assert.equal(ai.input({ ...bot, grounded: false }, player, 26).pressed.jump, true)
+  assert.equal(ai.input({ ...bot, grounded: false, airJumpsUsed: 1 }, player, 52).pressed.jump, false)
+  const progress = newProgress()
+  for (const chapter of STORY_CHAPTERS.slice(0, 14)) awardStoryVictory(progress, chapter.id, 'standard')
+  assert.equal(canUse(progress, 'character', 'hopper'), false)
+  assert.equal(isChapterAvailable(progress, 15), true)
+  assert.ok(awardStoryVictory(progress, 15, 'standard').some(event => event.detail.includes('HOPPER')))
+  assert.equal(canUse(progress, 'character', 'hopper'), true)
+  progress.selectedLoadout = sanitizeLoadout(progress, { character: 'hopper', weapon: 'sword', skill: 'blink' })
+  const restored = hydrateProgress(JSON.parse(JSON.stringify(progress)))
+  assert.equal(restored.selectedLoadout.character, 'hopper')
+  assert.equal(restored.characterMastery.hopper.level, 1)
+  assert.equal(sanitizeLoadout(newProgress(), { character: 'hopper', weapon: 'sword', skill: 'blink' }).character, 'standard')
 })

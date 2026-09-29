@@ -56,6 +56,17 @@ function bodyCanvas(character: Character, color: number): HTMLCanvasElement {
     box(ctx, 6, 2, 24, 21, outline); box(ctx, 9, 4, 18, 18, paint(color))
     box(ctx, 9, 10, 18, 7, '#132334'); box(ctx, 11, 12, 14, 3, '#edfaff')
     box(ctx, 4, 0, 5, 8, shade); box(ctx, 27, 0, 5, 8, shade)
+  } else if (character === 'hopper') {
+    // Spring shoes and an angled visor keep this jumper distinct from LIGHT.
+    box(ctx, 4, 49, 13, 7, outline); box(ctx, 20, 49, 13, 7, outline)
+    box(ctx, 6, 51, 11, 3, light); box(ctx, 22, 51, 11, 3, light)
+    box(ctx, 7, 44, 6, 5, shade); box(ctx, 23, 44, 6, 5, shade)
+    box(ctx, 9, 45, 4, 2, light); box(ctx, 23, 45, 4, 2, light)
+    box(ctx, 6, 22, 24, 24, outline); box(ctx, 9, 24, 18, 20, paint(color))
+    poly(ctx, [[10, 27], [18, 33], [24, 27], [24, 31], [18, 38], [10, 31]], light)
+    box(ctx, 8, 4, 20, 18, outline); box(ctx, 10, 6, 16, 14, paint(color))
+    box(ctx, 9, 11, 19, 5, '#162a36'); box(ctx, 12, 12, 13, 2, '#effcff')
+    poly(ctx, [[13, 4], [16, 0], [19, 4], [22, 0], [24, 5]], light)
   } else {
     // The balanced fighter has a jacket, separate arms and a clear face.
     box(ctx, 7, 46, 8, 10, outline); box(ctx, 22, 46, 8, 10, outline)

@@ -27,8 +27,8 @@ export function newProgress(): PlayerProgress {
     unlockedSkills: [...STARTER_UNLOCKS.skill], unlockedAttacks: [...STARTER_UNLOCKS.attack],
     unlockedColors: [...STARTER_UNLOCKS.color], ownedCosmetics: [], ownedGear: [], selectedLoadout: { ...DEFAULT_LOADOUT },
     storyProgress: { clearedChapters: [], defeatedBosses: [] },
-    characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart() },
-    onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0 },
+    characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart(), hopper: masteryStart() },
+    onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0, hopper: 0 },
   }
 }
 export function xpForNextLevel(level: number): number { return 100 + Math.max(0, level - 1) * 50 }

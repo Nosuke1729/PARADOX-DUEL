@@ -66,6 +66,10 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     enemy: { character: 'heavy', weapon: 'whip', skill: 'echo_swap', attack: 'whip_sweep' }, difficulty: 'hard',
     boss: { id: 'arena_champion', hpMultiplier: 1.45, phaseAt: 0.48, special: 'echo_pressure' }, rewardXp: 1050, rewardCoins: 650,
     arena: { platformX: 359, platformY: 318, platformWidth: 242, accent: 0xc2a8ee } },
+  { id: 15, title: 'ぴょんと二段ジャンプ', subtitle: '上から来る相手', briefing: 'HOPPERは空中で一度だけ追加ジャンプします。着地を読んで迎え撃とう。勝つとHOPPERが使えます。', enemyName: 'HOPPER',
+    enemy: { character: 'hopper', weapon: 'fan', skill: 'blink', attack: 'fan_swat' }, difficulty: 'hard',
+    boss: { id: 'hopper', hpMultiplier: 1.4, phaseAt: 0.45, special: 'dash_burst' }, rewardXp: 1120, rewardCoins: 700,
+    arena: { platformX: 383, platformY: 330, platformWidth: 194, accent: 0xa9dc8a } },
 ]
 
 export function chapterById(id: number): StoryChapter | undefined { return STORY_CHAPTERS.find(chapter => chapter.id === id) }

@@ -65,6 +65,7 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
   { kind: 'weapon', id: 'whip', name: WEAPONS.whip.name, anyOf: [{ type: 'chapter', chapter: 13 }], hint: 'ステージ13をクリア' },
   { kind: 'attack', id: 'whip_snap', name: ATTACKS.whip_snap.name, anyOf: [{ type: 'weapon', weapon: 'whip' }], hint: 'WHIPを使えるようになる' },
   { kind: 'attack', id: 'whip_sweep', name: ATTACKS.whip_sweep.name, anyOf: [{ type: 'chapter', chapter: 14 }], hint: 'ステージ14をクリア' },
+  { kind: 'character', id: 'hopper', name: CHARACTERS.hopper.name, anyOf: [{ type: 'boss', id: 'hopper' }], hint: 'ステージ15のHOPPERに勝つ' },
   { kind: 'color', id: 'mint', name: 'ミント', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'peach', name: 'もも', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'lemon', name: 'レモン', anyOf: [], hint: 'ショップで購入' },

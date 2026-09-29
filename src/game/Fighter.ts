@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { attackCycleFrames, attackFor, CHARACTERS } from './balance'
+import { attackCycleFrames, attackFor, CHARACTERS, nextAirJumpUse } from './balance'
 import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
 import { COLORS } from '../progression/catalog'
@@ -30,6 +30,7 @@ export class Fighter {
   dropFrames = 0
   stunFrames = 0
   hurtCooldown = 0
+  airJumpsUsed = 0
 
   constructor(scene: Phaser.Scene, slot: Slot, loadout: Loadout, hpMultiplier = 1) {
     this.slot = slot
@@ -71,13 +72,21 @@ export class Fighter {
     if (this.attackFrame > 0) this.attackFrame = this.attackFrame >= attackCycleFrames(this.loadout) ? 0 : this.attackFrame + 1
     if (this.dashFrames > 0) this.dashFrames--
     const config = CHARACTERS[this.loadout.character]
+    const grounded = this.grounded
+    if (grounded) this.airJumpsUsed = 0
     const direction = Number(held.right) - Number(held.left)
     if (direction !== 0 && this.dashFrames === 0 && this.stunFrames === 0) this.facing = direction as -1 | 1
     if (this.stunFrames === 0) {
       if (pressed.dash && this.dashCooldown === 0) { this.dashFrames = 9; this.dashCooldown = 80 }
       this.body.setVelocityX(this.dashFrames > 0 ? this.facing * config.dashSpeed :
-        direction * (this.grounded ? config.moveSpeed : config.airSpeed))
-      if (pressed.jump && this.grounded && this.dropFrames === 0) this.body.setVelocityY(-config.jumpSpeed)
+        direction * (grounded ? config.moveSpeed : config.airSpeed))
+      if (pressed.jump && this.dropFrames === 0) {
+        const nextJump = nextAirJumpUse(this.loadout.character, grounded, this.airJumpsUsed)
+        if (nextJump !== undefined) {
+          this.airJumpsUsed = nextJump
+          this.body.setVelocityY(-config.jumpSpeed)
+        }
+      }
       if (pressed.attack && this.attackFrame === 0) { this.attackFrame = 1; this.attackId++ }
     }
     this.sprite.setFlipX(this.facing < 0)
@@ -123,7 +132,8 @@ export class Fighter {
   }
   state(): FighterState {
     return { ...this.frame(), hp: this.hp, hurtCooldown: this.hurtCooldown, echoCooldown: this.echoCooldown,
-      dashCooldown: this.dashCooldown, skillCooldown: this.skillCooldown, shieldFrames: this.shieldFrames, grounded: this.grounded }
+      dashCooldown: this.dashCooldown, skillCooldown: this.skillCooldown, shieldFrames: this.shieldFrames,
+      grounded: this.grounded, airJumpsUsed: this.airJumpsUsed }
   }
   applyState(state: FighterState, snapPosition: boolean): void {
     if (snapPosition) this.sprite.setPosition(state.x, state.y)
@@ -132,6 +142,7 @@ export class Fighter {
     this.attackFrame = state.attackFrame; this.attackId = state.attackId
     this.echoCooldown = state.echoCooldown; this.dashCooldown = state.dashCooldown
     this.skillCooldown = state.skillCooldown; this.shieldFrames = state.shieldFrames
+    this.airJumpsUsed = state.airJumpsUsed ?? 0
     this.sprite.setFlipX(this.facing < 0)
   }
   interpolateTo(state: FighterState, factor: number): void {
@@ -139,6 +150,7 @@ export class Fighter {
     this.body.updateFromGameObject()
     this.facing = state.facing; this.attackFrame = state.attackFrame; this.attackId = state.attackId
     this.hp = state.hp; this.hurtCooldown = state.hurtCooldown; this.shieldFrames = state.shieldFrames
+    this.airJumpsUsed = state.airJumpsUsed ?? 0
     this.sprite.setFlipX(this.facing < 0)
   }
   record(): void { this.recorder.push(this.frame()) }
@@ -159,6 +171,7 @@ export class Fighter {
     this.attackFrame = 0; this.attackId = 0; this.dashFrames = 0; this.dashCooldown = 0
     this.echoCooldown = 0; this.skillCooldown = 0; this.shieldFrames = 0
     this.dropFrames = 0; this.stunFrames = 0; this.hurtCooldown = 0
+    this.airJumpsUsed = 0
     this.recorder.clear()
     this.teleport(this.slot === 1 ? 210 : 750, WORLD.floorY - HEIGHT / 2)
   }

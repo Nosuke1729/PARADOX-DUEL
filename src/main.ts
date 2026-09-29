@@ -319,7 +319,7 @@ async function renderProfile(): Promise<void> {
     ['オンライン勝利', String(progress.onlineWins)], ['オンライン敗北', String(progress.onlineLosses)],
     ['ストーリー進行', `${progress.storyProgress.clearedChapters.length} / ${STORY_CHAPTERS.length} ステージ`],
     ['よく使うキャラ', CHARACTERS[favoriteCharacter(progress)].name],
-    ...(['standard', 'light', 'heavy'] as Character[]).map(character =>
+    ...(Object.keys(CHARACTERS) as Character[]).map(character =>
       [`${CHARACTERS[character].name} の熟練度`, `レベル ${progress.characterMastery[character].level}`] as [string, string]),
   ]
   for (const [label, value] of fields) {

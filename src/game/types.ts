@@ -1,6 +1,6 @@
 export type Slot = 1 | 2
 export type Phase = 'menu' | 'lobby' | 'countdown' | 'playing' | 'round_end' | 'match_end'
-export type Character = 'standard' | 'light' | 'heavy'
+export type Character = 'standard' | 'light' | 'heavy' | 'hopper'
 export type Weapon = 'sword' | 'spear' | 'blaster' | 'dagger' | 'hammer' | 'fan' | 'yoyo' | 'whip'
 export type Skill = 'blink' | 'shield' | 'shockwave' | 'echo_swap' | 'spring'
 export type AttackStyle = 'basic_slash' | 'heavy_slash' | 'upper_slash' | 'spear_thrust' | 'spear_sweep' | 'blaster_shot' | 'charged_shot' | 'dagger_stab' | 'dagger_lunge' | 'hammer_smash' | 'hammer_upper' | 'fan_swat' | 'fan_gust' | 'yoyo_toss' | 'yoyo_high' | 'whip_snap' | 'whip_sweep'
@@ -23,7 +23,7 @@ export interface Frame {
 }
 export interface FighterState extends Frame {
   hp: number; hurtCooldown: number; echoCooldown: number; dashCooldown: number
-  skillCooldown: number; shieldFrames: number; grounded: boolean
+  skillCooldown: number; shieldFrames: number; grounded: boolean; airJumpsUsed: number
 }
 export interface ProjectileState {
   id: string; owner: Slot; x: number; y: number; vx: number; ttl: number

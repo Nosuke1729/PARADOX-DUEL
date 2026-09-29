@@ -1,9 +1,9 @@
-import { attackCycleFrames } from '../game/balance'
+import { attackCycleFrames, nextAirJumpUse } from '../game/balance'
 import { EMPTY_CONTROLS, type Character, type Controls, type Loadout, type Weapon } from '../game/types'
 import type { BossConfig, Difficulty } from './chapters'
 
 export interface AICombatant {
-  x: number; y: number; hp: number; maxHp: number; attackFrame: number; grounded: boolean
+  x: number; y: number; hp: number; maxHp: number; attackFrame: number; grounded: boolean; airJumpsUsed: number
   loadout: { character: Character; weapon: Weapon; attack?: Loadout['attack'] }; echoCooldown: number; skillCooldown: number
   recorder: { ready(): boolean }
 }
@@ -50,7 +50,10 @@ export class StoryAI {
     const dodge = player.attackFrame > 0 && Math.abs(distance) < 165 && this.random() < base.dodgeChance / reaction
     const dash = tick - this.lastDash > (secondPhase && this.boss?.special === 'dash_burst' ? 105 : 175) &&
       (dodge || Math.abs(distance) > range + 145 && this.random() < (secondPhase ? 0.18 : 0.08))
-    const jump = bot.grounded && tick - this.lastJump > 130 && (player.y < bot.y - 65 || this.random() < 0.004)
+    const jump = bot.grounded
+      ? tick - this.lastJump > 130 && (player.y < bot.y - 65 || this.random() < (bot.loadout.character === 'hopper' ? 0.018 : 0.004))
+      : nextAirJumpUse(bot.loadout.character, false, bot.airJumpsUsed) !== undefined &&
+        tick - this.lastJump > 24 && (player.y < bot.y - 30 || this.random() < (secondPhase ? 0.045 : 0.025))
     const echo = bot.recorder.ready() && bot.echoCooldown === 0 && tick - this.lastEcho > 260 &&
       this.random() < (this.boss?.special === 'echo_pressure' ? 0.065 : base.echoUsage / 170)
     const skill = bot.skillCooldown === 0 && tick - this.lastSkill > 160 &&
