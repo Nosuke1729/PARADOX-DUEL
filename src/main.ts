@@ -7,7 +7,7 @@ import { drawFighterPreview } from './game/FighterArt'
 import { RoomManager } from './network/RoomManager'
 import { CloudProgress } from './progression/cloud'
 import { COLORS, HATS, type UnlockKind } from './progression/catalog'
-import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, xpForNextLevel, type ProgressEvent } from './progression/progress'
+import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, storyReward, xpForNextLevel, type ProgressEvent } from './progression/progress'
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
@@ -234,7 +234,9 @@ function renderStory(): void {
     const eyebrow = document.createElement('p'); eyebrow.className = 'eyebrow'; eyebrow.textContent = `ステージ ${chapter.id}${chapter.boss ? ' ・ ボス戦' : ''}`
     const title = document.createElement('h3'); title.textContent = chapter.title
     const briefing = document.createElement('p'); briefing.textContent = chapter.briefing
-    const enemy = document.createElement('p'); enemy.className = 'chapter-meta'; enemy.textContent = `相手：${chapter.enemyName}  ·  報酬：${chapter.rewardXp} XP / ${chapter.rewardCoins} コイン`
+    const firstClear = !progress.storyProgress.clearedChapters.includes(chapter.id)
+    const reward = storyReward(chapter, firstClear)
+    const enemy = document.createElement('p'); enemy.className = 'chapter-meta'; enemy.textContent = `相手：${chapter.enemyName}  ·  ${firstClear ? '初回' : '再クリア'}報酬：${reward.xp} XP / ${reward.coins} コイン`
     const button = document.createElement('button'); button.className = 'button ' + (isChapterAvailable(progress, chapter.id) ? 'primary' : 'secondary')
     button.disabled = !isChapterAvailable(progress, chapter.id)
     button.textContent = progress.storyProgress.clearedChapters.includes(chapter.id) ? 'もう一度 →' : button.disabled ? `🔒 先にステージ ${chapter.id - 1} をクリア` : 'はじめる →'

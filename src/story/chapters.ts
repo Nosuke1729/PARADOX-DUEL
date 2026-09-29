@@ -31,7 +31,7 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     enemy: { character: 'standard', weapon: 'blaster', skill: 'shield', attack: 'blaster_shot' }, difficulty: 'normal', rewardXp: 240, rewardCoins: 130 },
   { id: 4, title: 'でっかい相手', subtitle: 'HEAVYと対戦', briefing: '大きくて硬いHEAVY。後半は守りがさらに強くなります。', enemyName: 'HEAVY',
     enemy: { character: 'heavy', weapon: 'spear', skill: 'shield', attack: 'spear_thrust' }, difficulty: 'hard',
-    boss: { id: 'heavy', hpMultiplier: 1.65, phaseAt: 0.45, special: 'iron_guard' }, rewardXp: 300, rewardCoins: 170 },
+    boss: { id: 'heavy', hpMultiplier: 1.45, phaseAt: 0.45, special: 'iron_guard' }, rewardXp: 300, rewardCoins: 170 },
   { id: 5, title: '分身どうしで大騒ぎ', subtitle: '最後の対戦', briefing: '相手も分身を使います。ごちゃごちゃする前に、落ち着いて対処しよう。', enemyName: '分身使い',
     enemy: { character: 'standard', weapon: 'sword', skill: 'echo_swap', attack: 'heavy_slash' }, difficulty: 'hard',
     boss: { id: 'echo_master', hpMultiplier: 1.75, phaseAt: 0.5, special: 'echo_pressure' }, rewardXp: 360, rewardCoins: 220 },
@@ -64,7 +64,7 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     arena: { platformX: 553, platformY: 324, platformWidth: 222, accent: 0xef9a83 } },
   { id: 14, title: 'ごちゃまぜチャンピオン', subtitle: '新しい武器の総仕上げ', briefing: 'ムチと分身を組み合わせる相手です。跳ぶ・近づく・待つを使い分けよう。クリアで新しいムチ技が使えます。', enemyName: 'チャンピオン',
     enemy: { character: 'heavy', weapon: 'whip', skill: 'echo_swap', attack: 'whip_sweep' }, difficulty: 'hard',
-    boss: { id: 'arena_champion', hpMultiplier: 1.6, phaseAt: 0.48, special: 'echo_pressure' }, rewardXp: 1050, rewardCoins: 650,
+    boss: { id: 'arena_champion', hpMultiplier: 1.45, phaseAt: 0.48, special: 'echo_pressure' }, rewardXp: 1050, rewardCoins: 650,
     arena: { platformX: 359, platformY: 318, platformWidth: 242, accent: 0xc2a8ee } },
 ]
 

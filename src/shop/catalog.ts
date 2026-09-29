@@ -3,14 +3,15 @@ import { COLORS, GEAR_CAPSULE_ITEMS, HATS, type GearCapsuleItem } from '../progr
 import { canUse, syncUnlocks, type PlayerProgress } from '../progression/progress'
 
 export const SHOP_COLORS = [
-  { id: 'mint', price: 140 },
-  { id: 'peach', price: 140 },
-  { id: 'lemon', price: 180 },
+  { id: 'mint', price: 220 },
+  { id: 'peach', price: 240 },
+  { id: 'lemon', price: 360 },
+  { id: 'gold', price: 850 },
 ] as const
 
 export const CAPSULE_COLORS = ['grape', 'soda', 'sunset', 'star'] as const
-export const CAPSULE_PRICE = 90
-export const GEAR_CAPSULE_PRICE = 220
+export const CAPSULE_PRICE = 160
+export const GEAR_CAPSULE_PRICE = 450
 export const DUPLICATE_REFUND_PERCENT = 50
 const refundFor = (price: number): number => Math.floor(price * DUPLICATE_REFUND_PERCENT / 100)
 

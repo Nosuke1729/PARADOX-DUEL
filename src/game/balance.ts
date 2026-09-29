@@ -4,7 +4,7 @@ import { HATS } from './cosmetics'
 export interface CharacterConfig {
   name: string; subtitle: string; description: string; hp: number; moveSpeed: number
   airSpeed: number; jumpSpeed: number; dashSpeed: number; power: number; knockback: number
-  ratings: string
+  attackRecoveryFrames: number; ratings: string
 }
 export interface WeaponConfig {
   name: string; subtitle: string; description: string; startup: number; active: number
@@ -14,9 +14,9 @@ export interface SkillConfig { name: string; subtitle: string; description: stri
 export interface AttackConfig extends WeaponConfig { weapon: Weapon; verticalOffset?: number; knockback?: number }
 
 export const CHARACTERS: Record<Character, CharacterConfig> = {
-  standard: { name: 'STANDARD', subtitle: '均衡型', description: '速度・耐久・攻撃力のバランスがよい。どの武器やSkillとも組み合わせやすい。', hp: 100, moveSpeed: 330, airSpeed: 300, jumpSpeed: 700, dashSpeed: 820, power: 1, knockback: 1, ratings: 'HP ★★★ / SPEED ★★★ / POWER ★★★ / MOBILITY ★★★' },
-  light: { name: 'LIGHT', subtitle: '高速型', description: '低HP・低威力の代わりに移動、ジャンプ、ダッシュが速い。Echoとの位置調整に強い。', hp: 78, moveSpeed: 395, airSpeed: 360, jumpSpeed: 780, dashSpeed: 930, power: 0.8, knockback: 1.2, ratings: 'HP ★★ / SPEED ★★★★★ / POWER ★★ / MOBILITY ★★★★★' },
-  heavy: { name: 'HEAVY', subtitle: '重量型', description: '高HP・高威力。移動は遅いが、攻撃を受けても吹き飛びにくい。', hp: 130, moveSpeed: 285, airSpeed: 250, jumpSpeed: 650, dashSpeed: 700, power: 1.25, knockback: 0.7, ratings: 'HP ★★★★★ / SPEED ★★ / POWER ★★★★ / MOBILITY ★★' },
+  standard: { name: 'STANDARD', subtitle: '均衡型', description: '速度・耐久・攻撃力のバランスがよい。どの武器やSkillとも組み合わせやすい。', hp: 100, moveSpeed: 330, airSpeed: 300, jumpSpeed: 700, dashSpeed: 820, power: 1, knockback: 1, attackRecoveryFrames: 0, ratings: 'HP ★★★ / SPEED ★★★ / POWER ★★★ / MOBILITY ★★★' },
+  light: { name: 'LIGHT', subtitle: '高速型', description: '低HP・低威力の代わりに移動、ジャンプ、ダッシュが速い。Echoとの位置調整に強い。', hp: 78, moveSpeed: 395, airSpeed: 360, jumpSpeed: 780, dashSpeed: 930, power: 0.8, knockback: 1.2, attackRecoveryFrames: 0, ratings: 'HP ★★ / SPEED ★★★★★ / POWER ★★ / MOBILITY ★★★★★' },
+  heavy: { name: 'HEAVY', subtitle: '重量型', description: '高HPで吹き飛びにくい。攻撃は少し強いが、動きと攻撃後の立て直しが遅い。', hp: 118, moveSpeed: 285, airSpeed: 250, jumpSpeed: 650, dashSpeed: 700, power: 1.1, knockback: 0.8, attackRecoveryFrames: 10, ratings: 'HP ★★★★ / SPEED ★★ / POWER ★★★ / MOBILITY ★★' },
 }
 export const WEAPONS: Record<Weapon, WeaponConfig> = {
   sword: { name: 'SWORD', subtitle: '近距離', description: '発生が速く扱いやすい斬撃。射程は短い。', startup: 7, active: 6, total: 27, damage: 13, reach: 70, height: 44 },
@@ -57,6 +57,9 @@ export const ATTACKS: Record<AttackStyle, AttackConfig> = {
 export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat', yoyo: 'yoyo_toss', whip: 'whip_snap' }
 export function attackFor(weapon: Weapon, attack?: AttackStyle): AttackConfig {
   return attack && ATTACKS[attack]?.weapon === weapon ? ATTACKS[attack] : ATTACKS[DEFAULT_ATTACK[weapon]]
+}
+export function attackCycleFrames(loadout: Pick<Loadout, 'character' | 'weapon' | 'attack'>): number {
+  return attackFor(loadout.weapon, loadout.attack).total + CHARACTERS[loadout.character].attackRecoveryFrames
 }
 export function isLoadout(value: unknown): value is Loadout {
   if (!value || typeof value !== 'object') return false

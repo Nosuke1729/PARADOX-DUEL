@@ -1,6 +1,6 @@
 import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from '../game/balance'
 import { DEFAULT_LOADOUT, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from '../game/types'
-import { chapterById, STORY_CHAPTERS } from '../story/chapters'
+import { chapterById, STORY_CHAPTERS, type StoryChapter } from '../story/chapters'
 import { COLORS, GEAR_CAPSULE_ITEMS, HATS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
 
 export const PROGRESS_KEY = 'paradox-duel:progress:v1'
@@ -164,14 +164,18 @@ export function awardMastery(progress: PlayerProgress, character: Character, amo
   }
   return events
 }
+export function storyReward(chapter: Pick<StoryChapter, 'rewardXp' | 'rewardCoins'>, firstClear: boolean): { xp: number; coins: number } {
+  return firstClear ? { xp: chapter.rewardXp, coins: chapter.rewardCoins } :
+    { xp: Math.max(25, Math.round(chapter.rewardXp * 0.25)),
+      coins: Math.max(10, Math.min(120, Math.round(chapter.rewardCoins * 0.2))) }
+}
 export function awardStoryVictory(progress: PlayerProgress, chapterId: number, character: Character): ProgressEvent[] {
   const chapter = chapterById(chapterId)
   if (!chapter || !isChapterAvailable(progress, chapterId)) return []
   const firstClear = !progress.storyProgress.clearedChapters.includes(chapterId)
   if (firstClear) progress.storyProgress.clearedChapters.push(chapterId)
   if (chapter.boss && !progress.storyProgress.defeatedBosses.includes(chapter.boss.id)) progress.storyProgress.defeatedBosses.push(chapter.boss.id)
-  const xp = firstClear ? chapter.rewardXp : Math.max(25, Math.round(chapter.rewardXp * 0.25))
-  const coins = firstClear ? chapter.rewardCoins : Math.max(10, Math.round(chapter.rewardCoins * 0.25))
+  const { xp, coins } = storyReward(chapter, firstClear)
   progress.coins += coins
   const events: ProgressEvent[] = [
     { kind: 'unlock', title: firstClear ? 'ステージクリア！' : 'もう一度クリア！', detail: `+${xp} XP / +${coins} コイン` },

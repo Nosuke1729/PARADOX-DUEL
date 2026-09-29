@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { attackFor, damageFor, isLoadout, winnerByHealth } from '../src/game/balance'
+import { attackCycleFrames, attackFor, CHARACTERS, damageFor, isLoadout, winnerByHealth } from '../src/game/balance'
 import { STORY_CHAPTERS } from '../src/story/chapters'
 import { StoryAI } from '../src/story/StoryAI'
-import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, xpForNextLevel } from '../src/progression/progress'
+import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, storyReward, xpForNextLevel } from '../src/progression/progress'
 
 test('new pilots start with only NORMAL, SWORD, BLINK and BASIC SLASH', () => {
   const progress = newProgress()
@@ -88,12 +88,45 @@ test('HEAVY SLASH trades sustained damage and startup for a stronger single hit'
   assert.ok((heavy.knockback ?? 1) > (basic.knockback ?? 1))
 })
 
+test('HEAVY trades slower attack cycles for a modest damage and health advantage', () => {
+  const standard = { character: 'standard' as const, weapon: 'spear' as const, skill: 'blink' as const }
+  const heavy = { ...standard, character: 'heavy' as const }
+  assert.equal(CHARACTERS.heavy.hp, 118)
+  assert.ok(damageFor(heavy) > damageFor(standard))
+  assert.ok(damageFor(heavy) < damageFor(standard) * 1.2)
+  assert.equal(attackCycleFrames(heavy), attackCycleFrames(standard) + 10)
+  assert.ok(damageFor(heavy) / attackCycleFrames(heavy) < damageFor(standard) / attackCycleFrames(standard))
+  assert.ok(STORY_CHAPTERS[3].boss!.hpMultiplier < 1.5)
+})
+
+test('story AI waits for the HEAVY attack cycle before another strike', () => {
+  const ai = new StoryAI('hard', undefined, () => 0)
+  const bot = { x: 500, y: 400, hp: 118, maxHp: 118, attackFrame: 0, grounded: true,
+    loadout: { character: 'heavy' as const, weapon: 'spear' as const }, echoCooldown: 0, skillCooldown: 0,
+    recorder: { ready: () => false } }
+  const player = { ...bot, x: 450, loadout: { character: 'standard' as const, weapon: 'sword' as const } }
+  assert.equal(ai.input(bot, player, 1).pressed.attack, true)
+  assert.equal(ai.input(bot, player, 55).pressed.attack, false)
+  assert.equal(ai.input({ ...bot, attackFrame: 12 }, player, 67).pressed.attack, false)
+  assert.equal(ai.input(bot, player, 67).pressed.attack, true)
+})
+
+test('later story replays pay a useful but capped coin reward', () => {
+  assert.deepEqual(storyReward(STORY_CHAPTERS[0], true), { xp: 120, coins: 60 })
+  assert.deepEqual(storyReward(STORY_CHAPTERS[0], false), { xp: 30, coins: 12 })
+  assert.deepEqual(storyReward(STORY_CHAPTERS[13], false), { xp: 263, coins: 120 })
+  const progress = newProgress()
+  awardStoryVictory(progress, 1, 'standard')
+  awardStoryVictory(progress, 1, 'standard')
+  assert.equal(progress.coins, 72)
+})
+
 test('fourteen story stages are configured and AI range adapts to weapon', () => {
   assert.equal(STORY_CHAPTERS.length, 14)
   const ai = new StoryAI('normal', undefined, () => 0.99)
   const fighter = (weapon: 'sword' | 'blaster' | 'whip' | 'yoyo') => ({
     x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true,
-    loadout: { weapon }, echoCooldown: 0, skillCooldown: 0, recorder: { ready: () => false },
+    loadout: { character: 'standard' as const, weapon }, echoCooldown: 0, skillCooldown: 0, recorder: { ready: () => false },
   })
   const player = fighter('sword'); player.x = 350
   assert.equal(ai.input(fighter('sword'), player, 13).held.left, true)

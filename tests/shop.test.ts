@@ -4,7 +4,7 @@ import { attackFor, CHARACTERS, damageFor, isLoadout, SKILLS } from '../src/game
 import { attackRect, hurtRect, overlaps } from '../src/game/CombatMath'
 import { awardStoryVictory, canUse, hydrateProgress, newProgress, sanitizeLoadout, syncUnlocks } from '../src/progression/progress'
 import { GEAR_CAPSULE_ITEMS } from '../src/progression/catalog'
-import { CAPSULE_COLORS, CAPSULE_PRICE, DUPLICATE_REFUND_PERCENT, GEAR_CAPSULE_PRICE, buyColor, buyHat, drawCapsule, drawGearCapsule, gearCapsulePool } from '../src/shop/catalog'
+import { CAPSULE_COLORS, CAPSULE_PRICE, DUPLICATE_REFUND_PERCENT, GEAR_CAPSULE_PRICE, SHOP_COLORS, buyColor, buyHat, drawCapsule, drawGearCapsule, gearCapsulePool } from '../src/shop/catalog'
 import { STORY_CHAPTERS } from '../src/story/chapters'
 import { WORLD } from '../src/game/types'
 
@@ -122,15 +122,15 @@ test('gear capsule can unlock equipment or refund half its price on a duplicate'
 
 test('color capsule uses a fixed pool, returns half on duplicates, and hats survive save reload', () => {
   const progress = newProgress()
-  progress.coins = 1000
+  progress.coins = 2000
   assert.equal(DUPLICATE_REFUND_PERCENT, 50)
   assert.deepEqual(buyColor(progress, 'mint'), { ok: true, color: 'mint', duplicate: false, refund: 0 })
-  assert.equal(progress.coins, 860)
+  assert.equal(progress.coins, 1780)
   assert.equal(buyColor(progress, 'mint').ok, false)
-  assert.equal(progress.coins, 860)
+  assert.equal(progress.coins, 1780)
   assert.deepEqual(drawCapsule(progress, () => 0), { ok: true, color: CAPSULE_COLORS[0], duplicate: false, refund: 0 })
   assert.deepEqual(drawCapsule(progress, () => 0), { ok: true, color: CAPSULE_COLORS[0], duplicate: true, refund: CAPSULE_PRICE / 2 })
-  assert.equal(progress.coins, 860 - CAPSULE_PRICE * 2 + CAPSULE_PRICE / 2)
+  assert.equal(progress.coins, 1780 - CAPSULE_PRICE * 2 + CAPSULE_PRICE / 2)
   for (let index = 1; index < CAPSULE_COLORS.length; index++)
     assert.equal(drawCapsule(progress, () => (index + 0.1) / CAPSULE_COLORS.length).ok, true)
   assert.equal(new Set(progress.ownedCosmetics).size, 1 + CAPSULE_COLORS.length)
@@ -151,4 +151,18 @@ test('color capsule uses a fixed pool, returns half on duplicates, and hats surv
   const coins = progress.coins
   assert.deepEqual(drawCapsule(progress, () => 0), { ok: true, color: CAPSULE_COLORS[0], duplicate: true, refund: CAPSULE_PRICE / 2 })
   assert.equal(progress.coins, coins - CAPSULE_PRICE / 2)
+})
+
+test('shop offers a reachable early capsule and a longer-term cosmetic goal', () => {
+  assert.ok(CAPSULE_PRICE <= STORY_CHAPTERS[0].rewardCoins + STORY_CHAPTERS[1].rewardCoins)
+  assert.ok(GEAR_CAPSULE_PRICE > STORY_CHAPTERS[0].rewardCoins + STORY_CHAPTERS[1].rewardCoins)
+  assert.ok(SHOP_COLORS.some(item => item.id === 'gold' && item.price >= 800))
+  const progress = newProgress()
+  progress.coins = 850
+  assert.deepEqual(buyColor(progress, 'gold'), { ok: true, color: 'gold', duplicate: false, refund: 0 })
+  assert.equal(progress.coins, 0)
+  assert.equal(canUse(hydrateProgress(JSON.parse(JSON.stringify(progress))), 'color', 'gold'), true)
+  progress.coins = 1200
+  assert.deepEqual(buyHat(progress, 'cat_ears'), { ok: true, hat: 'cat_ears' })
+  assert.equal(canUse(hydrateProgress(JSON.parse(JSON.stringify(progress))), 'hat', 'cat_ears'), true)
 })

@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { attackFor, CHARACTERS } from './balance'
+import { attackCycleFrames, attackFor, CHARACTERS } from './balance'
 import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
 import { COLORS } from '../progression/catalog'
@@ -68,7 +68,7 @@ export class Fighter {
     this.dropFrames = Math.max(0, this.dropFrames - 1)
     this.stunFrames = Math.max(0, this.stunFrames - 1)
     this.hurtCooldown = Math.max(0, this.hurtCooldown - 1)
-    if (this.attackFrame > 0) this.attackFrame = this.attackFrame >= this.weapon.total ? 0 : this.attackFrame + 1
+    if (this.attackFrame > 0) this.attackFrame = this.attackFrame >= attackCycleFrames(this.loadout) ? 0 : this.attackFrame + 1
     if (this.dashFrames > 0) this.dashFrames--
     const config = CHARACTERS[this.loadout.character]
     const direction = Number(held.right) - Number(held.left)

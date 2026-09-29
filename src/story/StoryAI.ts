@@ -1,9 +1,10 @@
-import { EMPTY_CONTROLS, type Controls, type Weapon } from '../game/types'
+import { attackCycleFrames } from '../game/balance'
+import { EMPTY_CONTROLS, type Character, type Controls, type Loadout, type Weapon } from '../game/types'
 import type { BossConfig, Difficulty } from './chapters'
 
 export interface AICombatant {
   x: number; y: number; hp: number; maxHp: number; attackFrame: number; grounded: boolean
-  loadout: { weapon: Weapon }; echoCooldown: number; skillCooldown: number
+  loadout: { character: Character; weapon: Weapon; attack?: Loadout['attack'] }; echoCooldown: number; skillCooldown: number
   recorder: { ready(): boolean }
 }
 export const AI_DIFFICULTY = {
@@ -41,8 +42,11 @@ export class StoryAI {
         bot.loadout.weapon === 'yoyo' ? 120 : bot.loadout.weapon === 'dagger' ? 75 :
           bot.loadout.weapon === 'fan' ? 85 : 105) &&
       Math.abs(player.y - bot.y) < (bot.loadout.weapon === 'fan' || bot.loadout.weapon === 'whip' ? 95 : 74)
-    const attackInterval = Math.round((this.difficulty === 'easy' ? 94 : this.difficulty === 'normal' ? 71 : 54) / (secondPhase ? 1.25 : 1))
-    const attack = targetInRange && tick - this.lastAttack >= attackInterval && this.random() < Math.min(1, base.aggression + (secondPhase ? 0.12 : 0))
+    const attackInterval = Math.max(attackCycleFrames(bot.loadout),
+      Math.round((this.difficulty === 'easy' ? 94 : this.difficulty === 'normal' ? 71 : 54) / (secondPhase ? 1.25 : 1)) +
+      (bot.loadout.character === 'heavy' ? 12 : 0))
+    const attack = bot.attackFrame === 0 && targetInRange && tick - this.lastAttack >= attackInterval &&
+      this.random() < Math.min(1, base.aggression + (secondPhase ? 0.12 : 0))
     const dodge = player.attackFrame > 0 && Math.abs(distance) < 165 && this.random() < base.dodgeChance / reaction
     const dash = tick - this.lastDash > (secondPhase && this.boss?.special === 'dash_burst' ? 105 : 175) &&
       (dodge || Math.abs(distance) > range + 145 && this.random() < (secondPhase ? 0.18 : 0.08))

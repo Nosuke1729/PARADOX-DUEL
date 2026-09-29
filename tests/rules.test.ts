@@ -71,9 +71,9 @@ test('Online loadouts accept only available characters, weapons, and skills', ()
 test('Timeout compares health ratios so full-health Light ties full-health Heavy', () => {
   const light = { character: 'light', weapon: 'sword', skill: 'blink' } as const
   const heavy = { character: 'heavy', weapon: 'spear', skill: 'shield' } as const
-  assert.equal(winnerByHealth([78, 130], [light, heavy]), undefined)
-  assert.equal(winnerByHealth([60, 130], [light, heavy]), 2)
-  assert.equal(winnerByHealth([78, 100], [light, heavy]), 1)
+  assert.equal(winnerByHealth([CHARACTERS.light.hp, CHARACTERS.heavy.hp], [light, heavy]), undefined)
+  assert.equal(winnerByHealth([60, CHARACTERS.heavy.hp], [light, heavy]), 2)
+  assert.equal(winnerByHealth([CHARACTERS.light.hp, 100], [light, heavy]), 1)
 })
 
 test('Every character can jump above the stage platform with landing clearance', () => {
