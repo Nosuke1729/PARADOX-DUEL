@@ -88,10 +88,10 @@ test('HEAVY SLASH trades sustained damage and startup for a stronger single hit'
   assert.ok((heavy.knockback ?? 1) > (basic.knockback ?? 1))
 })
 
-test('eleven story stages are configured and AI range adapts to weapon', () => {
-  assert.equal(STORY_CHAPTERS.length, 11)
+test('fourteen story stages are configured and AI range adapts to weapon', () => {
+  assert.equal(STORY_CHAPTERS.length, 14)
   const ai = new StoryAI('normal', undefined, () => 0.99)
-  const fighter = (weapon: 'sword' | 'blaster') => ({
+  const fighter = (weapon: 'sword' | 'blaster' | 'whip' | 'yoyo') => ({
     x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true,
     loadout: { weapon }, echoCooldown: 0, skillCooldown: 0, recorder: { ready: () => false },
   })
@@ -99,4 +99,9 @@ test('eleven story stages are configured and AI range adapts to weapon', () => {
   assert.equal(ai.input(fighter('sword'), player, 13).held.left, true)
   const ranged = new StoryAI('normal', undefined, () => 0.99)
   assert.equal(ranged.input(fighter('blaster'), player, 13).held.right, true)
+  player.x = 370
+  const whip = new StoryAI('normal', undefined, () => 0.99)
+  assert.equal(whip.input(fighter('whip'), player, 13).held.left, false)
+  const yoyo = new StoryAI('normal', undefined, () => 0.99)
+  assert.equal(yoyo.input(fighter('yoyo'), player, 13).held.left, true)
 })

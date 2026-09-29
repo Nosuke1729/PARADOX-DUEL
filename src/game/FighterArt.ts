@@ -123,6 +123,21 @@ function weaponCanvas(weapon: Weapon, color: number): HTMLCanvasElement {
       stroke(ctx, 37, -12, 44, -29, 2, steel)
       stroke(ctx, 37, -12, 55, -25, 2, steel)
       break
+    case 'yoyo':
+      stroke(ctx, 26, -5, 38, -5, 5, edge)
+      stroke(ctx, 34, -5, 69, -7, 2, steel)
+      ctx.fillStyle = edge; ctx.beginPath(); ctx.arc(76, -7, 13, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(76, -7, 10, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = steel; ctx.beginPath(); ctx.arc(76, -7, 4, 0, Math.PI * 2); ctx.fill()
+      break
+    case 'whip':
+      stroke(ctx, 26, -5, 40, -5, 6, edge)
+      stroke(ctx, 29, -5, 39, -5, 3, '#a98765')
+      stroke(ctx, 40, -5, 56, -17, 5, edge)
+      stroke(ctx, 56, -17, 73, -8, 4, '#b69c72')
+      stroke(ctx, 73, -8, 92, -16, 3, '#b69c72')
+      stroke(ctx, 92, -16, 105, -10, 2, accent)
+      break
   }
   return result
 }
@@ -163,7 +178,7 @@ export function drawFighterPreview(canvasElement: HTMLCanvasElement, loadout: Lo
   ctx.fillStyle = '#102230'; ctx.fillRect(0, 0, width, height)
   ctx.fillStyle = '#1b3441'; ctx.fillRect(0, height - 22, width, 22)
   ctx.fillStyle = '#5c8b9c'; ctx.fillRect(0, height - 23, width, 2)
-  const scale = 2.35
+  const scale = Math.min(2.25, (height - 28) / 75, width / 180)
   const centerX = Math.round(width * 0.38)
   const centerY = height - 23 - 28 * scale
   ctx.imageSmoothingEnabled = false

@@ -15,21 +15,21 @@ export function weaponPose(weapon: Weapon, attack: AttackStyle | undefined, fram
   const swing = Math.min(1, Math.max(0, (frame - timing.startup - 1) / Math.max(1, timing.active - 1)))
   const recovery = Math.min(1, Math.max(0, (frame - timing.startup - timing.active) /
     Math.max(1, timing.total - timing.startup - timing.active)))
-  const upper = attack === 'upper_slash' || attack === 'hammer_upper'
+  const upper = attack === 'upper_slash' || attack === 'hammer_upper' || attack === 'yoyo_high'
   const sweep = attack === 'spear_sweep'
   const wide = attack === 'heavy_slash' || weapon === 'hammer'
-  const windup = upper ? 0.65 : wide ? -1.05 : sweep ? -0.6 : weapon === 'fan' ? -0.8 : -0.5
-  const follow = upper ? -1.0 : wide ? 0.85 : sweep ? 0.55 : weapon === 'fan' ? 0.7 : 0.45
+  const windup = upper ? 0.65 : wide ? -1.05 : weapon === 'whip' ? -0.95 : sweep ? -0.6 : weapon === 'fan' ? -0.8 : -0.5
+  const follow = upper ? -1.0 : wide ? 0.85 : weapon === 'whip' ? 0.78 : sweep ? 0.55 : weapon === 'fan' ? 0.7 : 0.45
   if (weapon === 'blaster') {
     const recoil = frame <= timing.startup ? 0 : frame <= timing.startup + timing.active ? 1 : 1 - recovery
     return { rotation: mix(0, -0.1, recoil), stretch: 1 - 0.08 * recoil }
   }
-  if (weapon === 'spear' && !sweep || weapon === 'dagger') {
+  if (weapon === 'spear' && !sweep || weapon === 'dagger' || weapon === 'yoyo' && !upper) {
     const thrust = frame <= timing.startup ? mix(0, -0.14, startup) :
       frame <= timing.startup + timing.active ? mix(-0.14, 0.1, swing) : mix(0.1, 0, recovery)
     const extension = frame <= timing.startup ? mix(1, 0.9, startup) :
-      frame <= timing.startup + timing.active ? mix(0.9, weapon === 'spear' ? 1.22 : 1.16, swing) :
-        mix(weapon === 'spear' ? 1.22 : 1.16, 1, recovery)
+      frame <= timing.startup + timing.active ? mix(0.9, weapon === 'spear' ? 1.22 : weapon === 'yoyo' ? 1.2 : 1.16, swing) :
+        mix(weapon === 'spear' ? 1.22 : weapon === 'yoyo' ? 1.2 : 1.16, 1, recovery)
     return { rotation: thrust, stretch: extension }
   }
   const rotation = frame <= timing.startup ? mix(0, windup, startup) :

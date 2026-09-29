@@ -1,6 +1,6 @@
 import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from '../game/balance'
 import { DEFAULT_LOADOUT, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from '../game/types'
-import { chapterById } from '../story/chapters'
+import { chapterById, STORY_CHAPTERS } from '../story/chapters'
 import { COLORS, GEAR_CAPSULE_ITEMS, HATS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
 
 export const PROGRESS_KEY = 'paradox-duel:progress:v1'
@@ -53,7 +53,8 @@ export function hydrateProgress(raw: unknown): PlayerProgress {
   const story = record(source.storyProgress)
   progress.storyProgress.clearedChapters = [...new Set((Array.isArray(story.clearedChapters) ? story.clearedChapters : [])
     .filter((id): id is number => Number.isInteger(id) && Boolean(chapterById(id as number))))].sort((a, b) => a - b)
-  progress.storyProgress.defeatedBosses = [...new Set(names(story.defeatedBosses).filter(id => ['light', 'heavy', 'echo_master', 'mix_master', 'spring_fighter', 'fan_master'].includes(id)))]
+  const bossIds = new Set(STORY_CHAPTERS.flatMap(chapter => chapter.boss ? [chapter.boss.id] : []))
+  progress.storyProgress.defeatedBosses = [...new Set(names(story.defeatedBosses).filter(id => bossIds.has(id)))]
   const mastery = record(source.characterMastery)
   const uses = record(source.characterUses)
   for (const character of Object.keys(CHARACTERS) as Character[]) {

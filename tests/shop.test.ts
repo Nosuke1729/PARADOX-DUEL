@@ -18,6 +18,10 @@ test('new weapons and attacks unlock through stages and affect combat', () => {
   assert.equal(canUse(progress, 'weapon', 'fan'), true)
   assert.equal(canUse(progress, 'skill', 'spring'), true)
   assert.equal(canUse(progress, 'attack', 'fan_gust'), true)
+  assert.equal(canUse(progress, 'weapon', 'yoyo'), true)
+  assert.equal(canUse(progress, 'weapon', 'whip'), true)
+  assert.equal(canUse(progress, 'attack', 'yoyo_high'), true)
+  assert.equal(canUse(progress, 'attack', 'whip_sweep'), true)
   assert.ok(attackFor('dagger').total < attackFor('sword').total)
   assert.ok(damageFor({ character: 'standard', weapon: 'hammer', skill: 'blink' }) >
     damageFor({ character: 'standard', weapon: 'sword', skill: 'blink' }))
@@ -30,6 +34,12 @@ test('new weapons and attacks unlock through stages and affect combat', () => {
   assert.equal(overlaps(attackRect(100, 400, 1, 'fan'), hurtRect(155, 330)), true)
   assert.ok(attackFor('fan', 'fan_gust').startup > attackFor('fan').startup)
   assert.ok(attackFor('fan', 'fan_gust').damage < attackFor('fan').damage)
+  assert.ok(attackFor('yoyo').reach > attackFor('sword').reach)
+  assert.ok(attackFor('yoyo').damage < attackFor('sword').damage)
+  assert.ok(attackFor('whip').height > attackFor('spear').height)
+  assert.ok(attackFor('whip').startup > attackFor('spear').startup)
+  assert.ok(overlaps(attackRect(100, 400, 1, 'whip'), hurtRect(230, 400)))
+  assert.equal(isLoadout({ character: 'standard', weapon: 'yoyo', attack: 'whip_snap', skill: 'blink' }), false)
   assert.ok(SKILLS.spring.cooldown > SKILLS.blink.cooldown)
   for (const chapter of STORY_CHAPTERS) {
     const rise = WORLD.floorY - (chapter.arena?.platformY ?? WORLD.platformY)
@@ -37,10 +47,46 @@ test('new weapons and attacks unlock through stages and affect combat', () => {
   }
 })
 
+test('new stages unlock their weapons, alternate attacks, and survive a reload', () => {
+  const progress = newProgress()
+  for (const chapter of STORY_CHAPTERS.slice(0, 11)) awardStoryVictory(progress, chapter.id, 'standard')
+  assert.equal(canUse(progress, 'weapon', 'yoyo'), false)
+  assert.equal(canUse(progress, 'weapon', 'whip'), false)
+  awardStoryVictory(progress, 12, 'standard')
+  assert.equal(canUse(progress, 'weapon', 'yoyo'), true)
+  assert.equal(canUse(progress, 'attack', 'yoyo_toss'), true)
+  assert.equal(canUse(progress, 'weapon', 'whip'), false)
+  awardStoryVictory(progress, 13, 'standard')
+  assert.equal(canUse(progress, 'weapon', 'whip'), true)
+  assert.equal(canUse(progress, 'attack', 'yoyo_high'), true)
+  assert.equal(canUse(progress, 'attack', 'whip_sweep'), false)
+  awardStoryVictory(progress, 14, 'standard')
+  assert.equal(canUse(progress, 'attack', 'whip_sweep'), true)
+  progress.selectedLoadout = sanitizeLoadout(progress, { character: 'standard', weapon: 'whip', attack: 'whip_sweep', skill: 'blink' })
+  const restored = hydrateProgress(JSON.parse(JSON.stringify(progress)))
+  assert.equal(restored.selectedLoadout.weapon, 'whip')
+  assert.equal(restored.selectedLoadout.attack, 'whip_sweep')
+  assert.ok(restored.storyProgress.defeatedBosses.includes('arena_champion'))
+})
+
+test('YO-YO can be drawn early and enables its matching basic attack', () => {
+  const progress = newProgress()
+  progress.coins = GEAR_CAPSULE_PRICE
+  const pool = gearCapsulePool(progress)
+  const index = pool.findIndex(item => item.kind === 'weapon' && item.id === 'yoyo')
+  assert.ok(index >= 0)
+  assert.deepEqual(drawGearCapsule(progress, () => (index + 0.1) / pool.length),
+    { ok: true, item: { kind: 'weapon', id: 'yoyo' }, duplicate: false, refund: 0 })
+  assert.equal(canUse(progress, 'weapon', 'yoyo'), true)
+  assert.equal(canUse(progress, 'attack', 'yoyo_toss'), true)
+  assert.equal(sanitizeLoadout(progress, { character: 'standard', weapon: 'yoyo', skill: 'blink' }).attack, 'yoyo_toss')
+})
+
 test('gear capsule can unlock equipment or refund half its price on a duplicate', () => {
   const progress = newProgress()
   progress.coins = 1000
   assert.equal(gearCapsulePool(progress).some(item => item.id === 'fan_gust'), false)
+  assert.equal(gearCapsulePool(progress).some(item => item.id === 'yoyo_high'), false)
   const pool = gearCapsulePool(progress)
   const fanIndex = pool.findIndex(item => item.id === 'fan')
   assert.ok(fanIndex >= 0)

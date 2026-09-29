@@ -658,6 +658,26 @@ export class BattleScene extends Phaser.Scene {
     frame: number, attack?: AttackStyle): void {
     const config = attackFor(weapon, attack)
     const progress = Math.min(1, Math.max(0, (frame - config.startup - 1) / Math.max(1, config.active - 1)))
+    if (weapon === 'yoyo' && attack !== 'yoyo_high') {
+      const distance = 55 + (config.reach - 55) * (0.6 + progress * 0.4)
+      const tipX = x + facing * distance
+      this.attacks.lineStyle(2, color, alpha * 0.8).lineBetween(x + facing * 28, y - 6, tipX, y - 6)
+      this.attacks.lineStyle(4, color, alpha).strokeCircle(tipX, y - 6, 9)
+      this.attacks.lineStyle(2, 0xffffff, alpha).strokeCircle(tipX, y - 6, 4)
+      return
+    }
+    if (weapon === 'whip') {
+      this.attacks.lineStyle(4, color, alpha).beginPath()
+      for (let index = 0; index <= 8; index++) {
+        const fraction = index / 8
+        const px = x + facing * (24 + fraction * config.reach * (0.8 + progress * 0.2))
+        const py = y - 7 + Math.sin(fraction * Math.PI * 2 - progress * Math.PI) * (11 + fraction * 12)
+        if (index === 0) this.attacks.moveTo(px, py)
+        else this.attacks.lineTo(px, py)
+      }
+      this.attacks.strokePath()
+      return
+    }
     if (weapon === 'spear' && attack !== 'spear_sweep' || weapon === 'dagger') {
       const near = weapon === 'spear' ? 38 : 26
       const far = near + (config.reach - near) * (0.7 + progress * 0.3)
@@ -667,7 +687,7 @@ export class BattleScene extends Phaser.Scene {
         x + facing * (far - 4), y - 10, x + facing * (far - 4), y)
       return
     }
-    const radius = weapon === 'hammer' ? 69 : weapon === 'fan' ? 53 : weapon === 'spear' ? 80 :
+    const radius = weapon === 'hammer' ? 69 : weapon === 'fan' ? 53 : weapon === 'spear' ? 80 : weapon === 'yoyo' ? 77 :
       attack === 'heavy_slash' ? 73 : attack === 'upper_slash' ? 57 : 64
     const firstAngle = weaponPose(weapon, attack, config.startup + 1).rotation
     const lastAngle = weaponPose(weapon, attack, frame).rotation

@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { BattleScene } from './game/BattleScene'
-import { ATTACKS, CHARACTERS, SKILLS, WEAPONS } from './game/balance'
+import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from './game/balance'
 import { BOT_LOADOUT, WORLD, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from './game/types'
 import { soundFX } from './game/SoundFX'
 import { drawFighterPreview } from './game/FighterArt'
@@ -41,17 +41,11 @@ app.innerHTML = `
     <section id="story" class="page hidden"><div class="page-head"><div><h2>ストーリー</h2><p>AIと戦って、キャラや武器を少しずつ増やそう。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="story-toolbar"><label for="difficulty">むずかしさ</label><select id="difficulty"><option value="recommended" selected>おまかせ</option><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard">むずかしい</option></select><span>各ステージのおすすめ設定で始めます。ここで変更できます。</span></div>
       <div id="chapter-list" class="chapter-grid"></div></section>
-    <section id="fighter" class="page hidden"><div class="page-head"><div><h2>キャラと装備</h2><p>使うキャラ、武器、攻撃、スキルと見た目を選びます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
-      <div class="fighter-grid">
-        <div class="fighter-fields">
-          <div class="selection"><label for="character">キャラ</label><select id="character"></select><p id="character-description" class="selection-description"></p><small id="character-ratings" class="ratings"></small></div>
-          <div class="selection"><label for="weapon">武器</label><select id="weapon"></select><p id="weapon-description" class="selection-description"></p></div>
-          <div class="selection"><label for="attack">攻撃</label><select id="attack"></select><p id="attack-description" class="selection-description"></p></div>
-          <div class="selection"><label for="skill">スキル（Iキー）</label><select id="skill"></select><p id="skill-description" class="selection-description"></p></div>
-          <div class="selection"><label for="color">色</label><select id="color"></select><p id="color-description" class="selection-description"></p></div>
-          <div class="selection"><label for="hat">帽子</label><select id="hat"></select><p id="hat-description" class="selection-description"></p></div>
-        </div><div class="inventory-panel"><div class="fighter-preview-card"><canvas id="fighter-preview" width="400" height="190" role="img" aria-label="選択中のキャラと装備の見た目"></canvas><p id="fighter-preview-label"></p></div><p class="eyebrow">使えるもの・まだ使えないもの</p><div id="unlock-list"></div></div>
-      </div></section>
+    <section id="fighter" class="page hidden"><div class="page-head"><div><h2>キャラと装備</h2><p>変えたい項目を選ぶと、使えるものと解放条件を見られます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
+      <div class="fighter-layout"><div class="fighter-showcase"><p class="eyebrow">いまのファイター</p><div class="fighter-preview-card"><canvas id="fighter-preview" width="400" height="190" role="img" aria-label="選択中のキャラと装備の見た目"></canvas><p id="fighter-preview-label"></p></div><p class="fighter-help">カードをタップして変更。まだ使えないものも、開いたパネルで解放条件を確認できます。</p></div>
+        <div id="fighter-categories" class="fighter-categories" aria-label="装備の項目"></div></div>
+      <dialog id="fighter-picker" class="fighter-picker" aria-labelledby="fighter-picker-title"><div class="fighter-picker-shell"><div class="fighter-picker-head"><div><p class="eyebrow">キャラと装備</p><h3 id="fighter-picker-title"></h3><p id="fighter-picker-description"></p></div><button id="fighter-picker-close" class="fighter-picker-close" type="button" aria-label="パネルを閉じる">×</button></div><div id="fighter-picker-list" class="fighter-picker-list"></div></div></dialog>
+    </section>
     <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、色や帽子、装備を増やせます。帽子は見た目だけが変わります。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="shop-summary"><strong id="shop-coins"></strong><span>買った色と帽子は「キャラと装備」から選べます。</span></div>
       <h3 class="shop-heading">好きな色を買う</h3><div id="shop-items" class="shop-grid"></div>
@@ -110,6 +104,8 @@ let rankedResultReported = false
 let disconnectTimer: number | undefined
 let currentScreen: Screen = 'menu'
 let authMode: 'signup' | 'login' = 'login'
+let activeFighterKind: UnlockKind = 'character'
+const fighterPicker = byId<HTMLDialogElement>('fighter-picker')
 const ranked = new RankedService()
 const cloud = new CloudProgress(
   loaded => { progress = loaded; if (currentScreen === 'menu') renderMenu(); if (currentScreen === 'fighter') renderFighter(); if (currentScreen === 'shop') renderShop(); if (currentScreen === 'profile') void renderProfile() },
@@ -118,6 +114,7 @@ const cloud = new CloudProgress(
 )
 
 function showScreen(screen: Screen): void {
+  if (screen !== 'fighter' && fighterPicker.open) fighterPicker.close()
   currentScreen = screen
   for (const id of screens) byId(id).classList.toggle('hidden', id !== screen)
   byId(screen).scrollTop = 0
@@ -140,69 +137,95 @@ function renderMenu(): void {
   byId('menu-level').textContent = `レベル ${progress.playerLevel}  ·  ${progress.currentXp} / ${xpForNextLevel(progress.playerLevel)} XP  ·  ${progress.coins} コイン  ·  ${cloud.identity?.username ?? 'ゲスト'}`
 }
 const groupNames: Record<UnlockKind, string> = {
-  character: 'キャラ', weapon: '武器', attack: '攻撃', skill: 'スキル', color: '色', hat: '帽子',
+  character: 'キャラ', weapon: '武器', attack: '技', skill: 'スキル', color: '色', hat: '帽子',
 }
-function addOptions(id: string, kind: UnlockKind, catalog: Record<string, { name: string; description: string }>, selected: string, weapon?: Weapon): void {
-  const select = byId<HTMLSelectElement>(id)
-  select.replaceChildren()
-  for (const [key, config] of Object.entries(catalog)) {
-    const option = document.createElement('option')
-    option.value = key
-    const compatible = !weapon || kind !== 'attack' || ATTACKS[key as AttackStyle].weapon === weapon
-    const unlocked = canUse(progress, kind, key)
-    option.disabled = !unlocked || !compatible
-    option.textContent = `${config.name}${unlocked ? '' : '  🔒 ' + lockHint(kind, key)}${compatible ? '' : ' / 別の武器用'}`
-    select.append(option)
-  }
-  select.value = selected
+const fighterKinds: readonly UnlockKind[] = ['character', 'weapon', 'attack', 'skill', 'color', 'hat']
+const fighterCatalogs: Record<UnlockKind, Record<string, { name: string; description: string; subtitle?: string }>> = {
+  character: CHARACTERS, weapon: WEAPONS, attack: ATTACKS, skill: SKILLS, color: COLORS, hat: HATS,
+}
+function fighterEntries(kind: UnlockKind, weapon: Weapon): [string, { name: string; description: string; subtitle?: string }][] {
+  return Object.entries(fighterCatalogs[kind]).filter(([id]) => kind !== 'attack' || ATTACKS[id as AttackStyle].weapon === weapon)
+}
+function fighterSelection(loadout: Loadout, kind: UnlockKind): string {
+  return kind === 'character' ? loadout.character : kind === 'weapon' ? loadout.weapon :
+    kind === 'attack' ? loadout.attack ?? DEFAULT_ATTACK[loadout.weapon] : kind === 'skill' ? loadout.skill :
+      kind === 'color' ? loadout.color ?? 'default' : loadout.hat ?? 'none'
 }
 function renderFighter(): void {
   const selected = currentLoadout()
-  addOptions('character', 'character', CHARACTERS, selected.character)
-  addOptions('weapon', 'weapon', WEAPONS, selected.weapon)
-  addOptions('attack', 'attack', ATTACKS, selected.attack ?? 'basic_slash', selected.weapon)
-  addOptions('skill', 'skill', SKILLS, selected.skill)
-  addOptions('color', 'color', COLORS, selected.color ?? 'default')
-  addOptions('hat', 'hat', HATS, selected.hat ?? 'none')
-  byId('character-description').textContent = CHARACTERS[selected.character].description
-  byId('character-ratings').textContent = CHARACTERS[selected.character].ratings
-  byId('weapon-description').textContent = WEAPONS[selected.weapon].description
-  byId('attack-description').textContent = ATTACKS[selected.attack!].description
-  byId('skill-description').textContent = SKILLS[selected.skill].description
-  byId('color-description').textContent = COLORS[selected.color ?? 'default'].description
-  byId('hat-description').textContent = HATS[selected.hat ?? 'none'].description
   drawFighterPreview(byId<HTMLCanvasElement>('fighter-preview'), selected, COLORS[selected.color ?? 'default'].hex)
-  byId('fighter-preview-label').textContent = `${CHARACTERS[selected.character].name} / ${WEAPONS[selected.weapon].name} / ${HATS[selected.hat ?? 'none'].name}`
-  const list = byId('unlock-list')
+  byId('fighter-preview-label').textContent = `${CHARACTERS[selected.character].name} · ${WEAPONS[selected.weapon].name} · ${ATTACKS[selected.attack!].name}`
+  const list = byId('fighter-categories')
   list.replaceChildren()
-  const groups: [UnlockKind, Record<string, { name: string }>][] = [
-    ['character', CHARACTERS], ['weapon', WEAPONS], ['attack', ATTACKS], ['skill', SKILLS], ['color', COLORS], ['hat', HATS],
-  ]
-  for (const [kind, catalog] of groups) {
-    const heading = document.createElement('h3'); heading.textContent = groupNames[kind]; list.append(heading)
-    for (const [id, config] of Object.entries(catalog)) {
-      const item = document.createElement('p')
-      const unlocked = canUse(progress, kind, id)
-      item.className = unlocked ? 'unlock-owned' : 'unlock-locked'
-      item.textContent = `${unlocked ? '◆' : '🔒'} ${config.name}  ${unlocked ? '使えます' : lockHint(kind, id)}`
-      list.append(item)
+  for (const kind of fighterKinds) {
+    const entries = fighterEntries(kind, selected.weapon)
+    const id = fighterSelection(selected, kind)
+    const config = fighterCatalogs[kind][id]
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'fighter-category'
+    button.setAttribute('aria-label', `${groupNames[kind]}：${config.name}。選択肢を開く`)
+    const top = document.createElement('span'); top.className = 'fighter-category-top'
+    const name = document.createElement('span'); name.textContent = groupNames[kind]
+    const count = document.createElement('span'); count.textContent = `${entries.filter(([key]) => canUse(progress, kind, key)).length} / ${entries.length} 使える`
+    top.append(name, count)
+    const value = document.createElement('strong'); value.textContent = config.name
+    const description = document.createElement('small'); description.textContent = config.description
+    const action = document.createElement('span'); action.className = 'fighter-category-action'; action.textContent = '見て選ぶ  →'
+    button.append(top, value, description, action)
+    button.addEventListener('click', () => openFighterPanel(kind))
+    list.append(button)
+  }
+  if (fighterPicker.open) renderFighterPanel(activeFighterKind)
+}
+function openFighterPanel(kind: UnlockKind): void {
+  activeFighterKind = kind
+  renderFighterPanel(kind)
+  fighterPicker.showModal()
+}
+function renderFighterPanel(kind: UnlockKind): void {
+  const selected = currentLoadout()
+  byId('fighter-picker-title').textContent = `${groupNames[kind]}を選ぶ`
+  byId('fighter-picker-description').textContent = kind === 'attack'
+    ? `${WEAPONS[selected.weapon].name}で使える技です。武器を変えると技も切り替わります。`
+    : '使えるものを選ぶと、すぐにファイターへ反映されます。'
+  const list = byId('fighter-picker-list'); list.replaceChildren()
+  for (const [id, config] of fighterEntries(kind, selected.weapon)) {
+    const unlocked = canUse(progress, kind, id)
+    const inUse = fighterSelection(selected, kind) === id
+    const card = document.createElement('button')
+    card.type = 'button'; card.className = `fighter-choice${inUse ? ' is-selected' : ''}${unlocked ? '' : ' is-locked'}`
+    card.disabled = !unlocked
+    if (inUse) card.setAttribute('aria-current', 'true')
+    if (kind === 'character' || kind === 'weapon' || kind === 'color' || kind === 'hat') {
+      const preview = document.createElement('canvas')
+      preview.width = 220; preview.height = 116; preview.setAttribute('aria-hidden', 'true')
+      const sample: Loadout = { ...selected, [kind]: id }
+      if (kind === 'weapon') sample.attack = DEFAULT_ATTACK[id as Weapon]
+      drawFighterPreview(preview, sample, COLORS[sample.color ?? 'default'].hex)
+      card.append(preview)
     }
+    const heading = document.createElement('span'); heading.className = 'fighter-choice-heading'
+    const title = document.createElement('strong'); title.textContent = config.name
+    const subtitle = document.createElement('span'); subtitle.textContent = config.subtitle ?? groupNames[kind]
+    heading.append(title, subtitle)
+    const description = document.createElement('span'); description.className = 'fighter-choice-description'; description.textContent = config.description
+    const status = document.createElement('span'); status.className = 'fighter-choice-status'
+    status.textContent = inUse ? '✓ 選択中' : unlocked ? '選ぶ  →' : `🔒 ${lockHint(kind, id)}`
+    card.append(heading, description, status)
+    if (unlocked) card.addEventListener('click', () => {
+      const candidate: Loadout = { ...selected, [kind]: id }
+      if (kind === 'weapon') candidate.attack = DEFAULT_ATTACK[id as Weapon]
+      progress.selectedLoadout = sanitizeLoadout(progress, candidate)
+      persist()
+      fighterPicker.close()
+      renderFighter()
+    })
+    list.append(card)
   }
 }
-for (const id of ['character', 'weapon', 'attack', 'skill', 'color', 'hat'] as const) {
-  byId<HTMLSelectElement>(id).addEventListener('change', () => {
-    const candidate: Loadout = { ...progress.selectedLoadout,
-      character: byId<HTMLSelectElement>('character').value as Character,
-      weapon: byId<HTMLSelectElement>('weapon').value as Weapon,
-      attack: byId<HTMLSelectElement>('attack').value as AttackStyle,
-      skill: byId<HTMLSelectElement>('skill').value as Skill,
-      color: byId<HTMLSelectElement>('color').value,
-      hat: byId<HTMLSelectElement>('hat').value }
-    progress.selectedLoadout = sanitizeLoadout(progress, candidate)
-    persist()
-    renderFighter()
-  })
-}
+byId('fighter-picker-close').addEventListener('click', () => fighterPicker.close())
+fighterPicker.addEventListener('click', event => { if (event.target === fighterPicker) fighterPicker.close() })
 function renderStory(): void {
   const list = byId('chapter-list')
   list.replaceChildren()

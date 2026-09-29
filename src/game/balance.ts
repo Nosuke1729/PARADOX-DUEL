@@ -25,6 +25,8 @@ export const WEAPONS: Record<Weapon, WeaponConfig> = {
   dagger: { name: 'DAGGER', subtitle: '近距離・速攻', description: '短いリーチの代わりに、すばやく続けて攻撃できる短剣。', startup: 4, active: 5, total: 17, damage: 8, reach: 47, height: 39 },
   hammer: { name: 'HAMMER', subtitle: '近距離・一撃', description: '振りは遅いけれど、当たると大きく吹き飛ばすハンマー。', startup: 20, active: 7, total: 53, damage: 24, reach: 75, height: 51 },
   fan: { name: 'FAN', subtitle: '対空・広め', description: '扇で広くはたく。ジャンプした相手に強いが、威力と正面の射程は控えめ。', startup: 13, active: 8, total: 35, damage: 10, reach: 58, height: 79 },
+  yoyo: { name: 'YO-YO', subtitle: '中距離・牽制', description: '中距離まで伸びるヨーヨー。威力は低いが、長めの攻撃時間で相手の進路をふさげる。', startup: 9, active: 8, total: 31, damage: 9, reach: 91, height: 38 },
+  whip: { name: 'WHIP', subtitle: '遠め・広範囲', description: '遠くまで届き、上下にも当てやすいムチ。振り始めと空振り後の隙が大きい。', startup: 18, active: 5, total: 48, damage: 10, reach: 139, height: 58 },
 }
 export const SKILLS: Record<Skill, SkillConfig> = {
   blink: { name: 'BLINK', subtitle: '8秒', description: '向いている方向へ短距離瞬間移動。回避、接近、Echoとの位置合わせに使う。', cooldown: 480 },
@@ -47,8 +49,12 @@ export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   hammer_upper: { ...WEAPONS.hammer, weapon: 'hammer', name: 'UPPER HAMMER', subtitle: '対空', description: '上に向かって振る。ジャンプした相手にも当てやすい。', startup: 22, active: 7, total: 56, damage: 20, reach: 55, height: 93, verticalOffset: -23, knockback: 1.55 },
   fan_swat: { ...WEAPONS.fan, weapon: 'fan', name: 'FAN SWAT', subtitle: '標準', description: '広い縦の当たり判定で、跳ぶ相手をはたく。威力は低め。', verticalOffset: -10 },
   fan_gust: { ...WEAPONS.fan, weapon: 'fan', name: 'FAN GUST', subtitle: '押し出し', description: 'ゆっくり振って遠めの相手を押す。ダメージは小さく、外すと隙が大きい。', startup: 21, active: 7, total: 52, damage: 7, reach: 103, height: 56, knockback: 1.45 },
+  yoyo_toss: { ...WEAPONS.yoyo, weapon: 'yoyo', name: 'YO-YO TOSS', subtitle: '標準', description: '少し離れた相手へ投げる。届いている時間が長いが、一発の威力は低い。' },
+  yoyo_high: { ...WEAPONS.yoyo, weapon: 'yoyo', name: 'HIGH TOSS', subtitle: '対空', description: '上へヨーヨーを放る。正面の距離は短くなるので、跳んだ相手を読む技。', startup: 14, active: 7, total: 39, damage: 10, reach: 72, height: 86, verticalOffset: -24 },
+  whip_snap: { ...WEAPONS.whip, weapon: 'whip', name: 'WHIP SNAP', subtitle: '標準', description: '広い範囲を一度はたく。遠くまで届く反面、外した後は反撃されやすい。' },
+  whip_sweep: { ...WEAPONS.whip, weapon: 'whip', name: 'LOW SWEEP', subtitle: '押し出し', description: '近くの広い範囲を払う。射程と威力を減らして、相手を押し返す。', startup: 21, active: 7, total: 51, damage: 8, reach: 99, height: 76, knockback: 1.3 },
 }
-export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat' }
+export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat', yoyo: 'yoyo_toss', whip: 'whip_snap' }
 export function attackFor(weapon: Weapon, attack?: AttackStyle): AttackConfig {
   return attack && ATTACKS[attack]?.weapon === weapon ? ATTACKS[attack] : ATTACKS[DEFAULT_ATTACK[weapon]]
 }

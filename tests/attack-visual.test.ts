@@ -20,4 +20,8 @@ test('weapon styles have distinct movement, including a thrust and an upward swi
   assert.ok(weaponPose('sword', 'upper_slash', upper.startup + upper.active).rotation < -0.8)
   const hammer = attackFor('hammer', 'hammer_smash')
   assert.ok(weaponPose('hammer', 'hammer_smash', hammer.startup).rotation < -0.8)
+  const yoyo = attackFor('yoyo', 'yoyo_toss')
+  assert.ok(weaponPose('yoyo', 'yoyo_toss', yoyo.startup + yoyo.active).stretch > 1.1)
+  const whip = attackFor('whip', 'whip_snap')
+  assert.ok(weaponPose('whip', 'whip_snap', whip.startup).rotation < -0.8)
 })

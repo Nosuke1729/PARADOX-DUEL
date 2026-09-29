@@ -56,6 +56,16 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     enemy: { character: 'standard', weapon: 'fan', skill: 'echo_swap', attack: 'fan_gust' }, difficulty: 'hard',
     boss: { id: 'fan_master', hpMultiplier: 1.55, phaseAt: 0.5, special: 'echo_pressure' }, rewardXp: 780, rewardCoins: 500,
     arena: { platformX: 352, platformY: 322, platformWidth: 255, accent: 0xf0b3df } },
+  { id: 12, title: 'ヨーヨー名人', subtitle: '届く時間を見よう', briefing: '投げたヨーヨーがしばらく前に残ります。空振りを誘ってから近づこう。クリアでYO-YOが使えます。', enemyName: 'ヨーヨー名人',
+    enemy: { character: 'light', weapon: 'yoyo', skill: 'blink', attack: 'yoyo_toss' }, difficulty: 'normal', rewardXp: 850, rewardCoins: 530,
+    arena: { platformX: 178, platformY: 343, platformWidth: 208, accent: 0xe1c373 } },
+  { id: 13, title: 'ムチの間合い', subtitle: '遠くても油断しない', briefing: 'ムチは広く届きますが、振った後に大きな隙があります。分身で挟むのも有効。クリアでWHIPが使えます。', enemyName: 'ムチ使い',
+    enemy: { character: 'standard', weapon: 'whip', skill: 'shield', attack: 'whip_snap' }, difficulty: 'hard', rewardXp: 920, rewardCoins: 570,
+    arena: { platformX: 553, platformY: 324, platformWidth: 222, accent: 0xef9a83 } },
+  { id: 14, title: 'ごちゃまぜチャンピオン', subtitle: '新しい武器の総仕上げ', briefing: 'ムチと分身を組み合わせる相手です。跳ぶ・近づく・待つを使い分けよう。クリアで新しいムチ技が使えます。', enemyName: 'チャンピオン',
+    enemy: { character: 'heavy', weapon: 'whip', skill: 'echo_swap', attack: 'whip_sweep' }, difficulty: 'hard',
+    boss: { id: 'arena_champion', hpMultiplier: 1.6, phaseAt: 0.48, special: 'echo_pressure' }, rewardXp: 1050, rewardCoins: 650,
+    arena: { platformX: 359, platformY: 318, platformWidth: 242, accent: 0xc2a8ee } },
 ]
 
 export function chapterById(id: number): StoryChapter | undefined { return STORY_CHAPTERS.find(chapter => chapter.id === id) }
