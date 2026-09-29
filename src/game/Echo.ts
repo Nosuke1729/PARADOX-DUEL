@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { attackFor } from './balance'
 import { type AttackStyle, type Character, type EchoPacket, type Frame, type Slot, type Weapon } from './types'
+import { clampFighterPosition } from './position'
 
 export class Echo {
   readonly packet: EchoPacket
@@ -21,8 +22,8 @@ export class Echo {
     this.outline = scene.add.graphics().setDepth(5)
     this.drawOutline()
   }
-  get x(): number { return this.current.x + this.offsetX }
-  get y(): number { return this.current.y + this.offsetY }
+  get x(): number { return clampFighterPosition(this.current.x + this.offsetX, this.current.y + this.offsetY).x }
+  get y(): number { return clampFighterPosition(this.current.x + this.offsetX, this.current.y + this.offsetY).y }
   get facing(): -1 | 1 { return this.current.facing }
   get attackId(): number { return this.current.attackId }
   get isAttacking(): boolean {
@@ -39,7 +40,7 @@ export class Echo {
   }
   seek(index: number): void { this.index = Phaser.Math.Clamp(index, 0, this.packet.frames.length); if (!this.finished) this.step() }
   relocate(x: number, y: number): void {
-    this.offsetX += x - this.x; this.offsetY += y - this.y
+    this.offsetX = x - this.current.x; this.offsetY = y - this.current.y
     this.sprite.setPosition(this.x, this.y)
     this.drawOutline()
   }

@@ -3,6 +3,7 @@ import { attackFor, CHARACTERS } from './balance'
 import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
 import { COLORS } from '../progression/catalog'
+import { resetFighterBody } from './position'
 
 const WIDTH = 34
 const HEIGHT = 56
@@ -76,9 +77,7 @@ export class Fighter {
   }
 
   teleport(x: number, y = this.y): void {
-    this.sprite.setPosition(Phaser.Math.Clamp(x, 18, WORLD.width - 18), Phaser.Math.Clamp(y, 30, WORLD.floorY - 28))
-    this.body.updateFromGameObject()
-    this.body.setVelocity(0)
+    resetFighterBody(this.body, x, y)
   }
   blink(other: Fighter): boolean {
     for (let distance = 128; distance >= 32; distance -= 16) {
