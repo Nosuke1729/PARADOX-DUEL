@@ -4,11 +4,14 @@ import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
 import { COLORS } from '../progression/catalog'
 import { resetFighterBody } from './position'
+import { ensureFighterArt } from './FighterArt'
 
 const WIDTH = 34
 const HEIGHT = 56
 export class Fighter {
   readonly sprite: Phaser.Physics.Arcade.Sprite
+  private readonly weaponSprite: Phaser.GameObjects.Sprite
+  private readonly hatSprite: Phaser.GameObjects.Sprite
   readonly recorder = new EchoRecorder()
   readonly slot: Slot
   readonly color: number
@@ -36,9 +39,13 @@ export class Fighter {
       ? COLORS[loadout.color].hex : slot === 1 ? 0x58e5e1 : 0xff6b6f
     this.facing = slot === 1 ? 1 : -1
     const x = slot === 1 ? 210 : 750
-    this.sprite = scene.physics.add.sprite(x, WORLD.floorY - HEIGHT / 2, `fighter-${loadout.character}`)
-    this.sprite.setTint(this.color).setCollideWorldBounds(true).setDragX(0).setMaxVelocity(1000, 1000)
+    const art = ensureFighterArt(scene, loadout, this.color)
+    this.sprite = scene.physics.add.sprite(x, WORLD.floorY - HEIGHT / 2, art.body)
+    this.sprite.setDepth(4).setCollideWorldBounds(true).setDragX(0).setMaxVelocity(1000, 1000)
     this.sprite.body?.setSize(WIDTH, HEIGHT)
+    this.weaponSprite = scene.add.sprite(x, this.sprite.y, art.weapon).setDepth(5)
+    this.hatSprite = scene.add.sprite(x, this.sprite.y, art.hat).setDepth(6)
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.syncArt, this)
   }
 
   get body(): Phaser.Physics.Arcade.Body { return this.sprite.body as Phaser.Physics.Arcade.Body }
@@ -134,6 +141,11 @@ export class Fighter {
     this.sprite.setFlipX(this.facing < 0)
   }
   record(): void { this.recorder.push(this.frame()) }
+  private syncArt(): void {
+    for (const part of [this.weaponSprite, this.hatSprite]) {
+      part.setPosition(this.x, this.y).setFlipX(this.facing < 0).setAlpha(this.sprite.alpha)
+    }
+  }
   reset(): void {
     this.hp = this.maxHp
     this.facing = this.slot === 1 ? 1 : -1
@@ -143,5 +155,8 @@ export class Fighter {
     this.recorder.clear()
     this.teleport(this.slot === 1 ? 210 : 750, WORLD.floorY - HEIGHT / 2)
   }
-  destroy(): void { this.sprite.destroy() }
+  destroy(): void {
+    this.sprite.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncArt, this)
+    this.weaponSprite.destroy(); this.hatSprite.destroy(); this.sprite.destroy()
+  }
 }

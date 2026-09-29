@@ -5,8 +5,8 @@ export type Weapon = 'sword' | 'spear' | 'blaster' | 'dagger' | 'hammer' | 'fan'
 export type Skill = 'blink' | 'shield' | 'shockwave' | 'echo_swap' | 'spring'
 export type AttackStyle = 'basic_slash' | 'heavy_slash' | 'upper_slash' | 'spear_thrust' | 'spear_sweep' | 'blaster_shot' | 'charged_shot' | 'dagger_stab' | 'dagger_lunge' | 'hammer_smash' | 'hammer_upper' | 'fan_swat' | 'fan_gust'
 
-export interface Loadout { character: Character; weapon: Weapon; skill: Skill; attack?: AttackStyle; color?: string }
-export const DEFAULT_LOADOUT: Loadout = { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash' }
+export interface Loadout { character: Character; weapon: Weapon; skill: Skill; attack?: AttackStyle; color?: string; hat?: string }
+export const DEFAULT_LOADOUT: Loadout = { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash', hat: 'none' }
 export const BOT_LOADOUT: Loadout = { character: 'heavy', weapon: 'spear', skill: 'shield', attack: 'spear_thrust' }
 
 export interface Controls {

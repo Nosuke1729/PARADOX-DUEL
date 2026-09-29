@@ -1,7 +1,8 @@
 import { ATTACKS, CHARACTERS, SKILLS, WEAPONS } from '../game/balance'
 import type { AttackStyle, Character, Skill, Weapon } from '../game/types'
+export { HATS } from '../game/cosmetics'
 
-export type UnlockKind = 'character' | 'weapon' | 'skill' | 'attack' | 'color'
+export type UnlockKind = 'character' | 'weapon' | 'skill' | 'attack' | 'color' | 'hat'
 export type UnlockCondition =
   | { type: 'level'; level: number }
   | { type: 'chapter'; chapter: number }
@@ -63,11 +64,14 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
   { kind: 'color', id: 'soda', name: 'ソーダ', anyOf: [], hint: 'カプセルから入手' },
   { kind: 'color', id: 'sunset', name: '夕焼け', anyOf: [], hint: 'カプセルから入手' },
   { kind: 'color', id: 'star', name: 'きらきら', anyOf: [], hint: 'カプセルから入手' },
+  { kind: 'hat', id: 'cap', name: 'キャップ', anyOf: [], hint: 'ショップで購入' },
+  { kind: 'hat', id: 'beanie', name: 'ニット帽', anyOf: [], hint: 'ショップで購入' },
+  { kind: 'hat', id: 'crown', name: 'ちいさな王冠', anyOf: [], hint: 'ショップで購入' },
 ]
 
 export const STARTER_UNLOCKS = {
   character: ['standard'] as Character[], weapon: ['sword'] as Weapon[], skill: ['blink'] as Skill[],
-  attack: ['basic_slash'] as AttackStyle[], color: ['default'] as string[],
+  attack: ['basic_slash'] as AttackStyle[], color: ['default'] as string[], hat: ['none'] as string[],
 }
 
 export const COLORS: Record<string, { name: string; hex: number; description: string }> = {

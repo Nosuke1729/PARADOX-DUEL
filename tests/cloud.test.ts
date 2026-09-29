@@ -31,11 +31,14 @@ test('progress can be serialized and hydrated after a reload', () => {
   current.playerLevel = 2
   current.currentXp = 20
   current.coins = 77
+  current.ownedCosmetics.push('hat:cap')
+  current.selectedLoadout.hat = 'cap'
   let stored = ''
   saveProgress(current, { setItem(key, value) { assert.equal(key, PROGRESS_KEY); stored = value } })
   const restored = hydrateProgress(JSON.parse(stored))
   assert.equal(restored.playerLevel, 2)
   assert.equal(restored.currentXp, 20)
   assert.equal(restored.coins, 77)
+  assert.deepEqual(restored.ownedCosmetics, ['hat:cap'])
   assert.deepEqual(restored.selectedLoadout, { ...current.selectedLoadout, color: 'default' })
 })

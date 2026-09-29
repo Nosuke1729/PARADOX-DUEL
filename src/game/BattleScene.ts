@@ -70,7 +70,6 @@ export class BattleScene extends Phaser.Scene {
     this.focusCanvas()
     this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height)
     this.drawStage()
-    this.createFighterTexture()
     this.fighters = [new Fighter(this, 1, this.options.loadouts[0]),
       new Fighter(this, 2, this.options.loadouts[1], this.options.story?.boss?.hpMultiplier ?? 1)]
     if (this.options.story) this.storyAI = new StoryAI(this.options.story.difficulty, this.options.story.boss)
@@ -112,6 +111,7 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (this.absenceTimer) window.clearTimeout(this.absenceTimer)
       for (const echo of this.echoes) echo.destroy()
+      for (const fighter of this.fighters) fighter.destroy()
       if (this.options.room) {
         this.options.room.onInput = undefined
         this.options.room.onSnapshot = undefined
@@ -143,29 +143,6 @@ export class BattleScene extends Phaser.Scene {
     g.lineStyle(1, 0x335572, 0.65).lineBetween(480, 76, 480, WORLD.floorY)
     this.platform = this.add.rectangle(platformX + platformWidth / 2, this.platformTop + 6.5, platformWidth, 13, 0x213549, 0)
     this.physics.add.existing(this.platform, true)
-  }
-
-  private createFighterTexture(): void {
-    for (const character of ['standard', 'light', 'heavy'] as const) {
-      if (this.textures.exists(`fighter-${character}`)) continue
-      const g = this.make.graphics({ x: 0, y: 0 })
-      g.fillStyle(0xffffff)
-      if (character === 'light') {
-        g.fillRoundedRect(9, 3, 18, 20, 6).fillRoundedRect(7, 23, 22, 25, 5)
-        g.fillRect(9, 47, 7, 9).fillRect(21, 47, 7, 9)
-        g.fillStyle(0x09101a).fillRect(19, 11, 8, 3)
-      } else if (character === 'heavy') {
-        g.fillRoundedRect(6, 3, 24, 20, 3).fillRoundedRect(1, 22, 34, 29, 3)
-        g.fillRect(4, 49, 11, 7).fillRect(21, 49, 11, 7)
-        g.fillStyle(0x09101a).fillRect(18, 11, 12, 5)
-      } else {
-        g.fillRoundedRect(7, 3, 22, 22, 4).fillRoundedRect(3, 24, 30, 26, 3)
-        g.fillRect(6, 48, 9, 8).fillRect(21, 48, 9, 8)
-        g.fillStyle(0x09101a).fillRect(20, 12, 10, 4)
-      }
-      g.generateTexture(`fighter-${character}`, 36, 56)
-      g.destroy()
-    }
   }
 
   update(_time: number, delta: number): void {
@@ -288,7 +265,7 @@ export class BattleScene extends Phaser.Scene {
       echoId: this.tick, startTick: this.tick, frames: fighter.recorder.capture(),
     }
     fighter.echoCooldown = RULES.echoCooldown
-    this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack, fighter.color))
+    this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack, fighter.color, fighter.loadout.hat))
     soundFX.play('echo')
     this.options.room?.sendEvent({ kind: 'echo', echo: packet })
   }
@@ -521,7 +498,7 @@ export class BattleScene extends Phaser.Scene {
       if (packet.matchId !== this.matchId || packet.round !== this.round ||
         packet.frames.length !== RULES.echoFrames || this.echoes.some(echo => echo.packet.echoId === packet.echoId)) return
       const owner = this.fighters[packet.owner - 1]
-      const echo = new Echo(this, packet, owner.loadout.weapon, owner.loadout.character, owner.loadout.attack, owner.color)
+      const echo = new Echo(this, packet, owner.loadout.weapon, owner.loadout.character, owner.loadout.attack, owner.color, owner.loadout.hat)
       echo.seek(Math.max(0, this.tick - packet.startTick))
       this.echoes.push(echo)
       soundFX.play('echo')

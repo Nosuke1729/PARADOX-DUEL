@@ -3,14 +3,15 @@ import { BattleScene } from './game/BattleScene'
 import { ATTACKS, CHARACTERS, SKILLS, WEAPONS } from './game/balance'
 import { BOT_LOADOUT, WORLD, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from './game/types'
 import { soundFX } from './game/SoundFX'
+import { drawFighterPreview } from './game/FighterArt'
 import { RoomManager } from './network/RoomManager'
 import { CloudProgress } from './progression/cloud'
-import { COLORS, type UnlockKind } from './progression/catalog'
+import { COLORS, HATS, type UnlockKind } from './progression/catalog'
 import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, xpForNextLevel, type ProgressEvent } from './progression/progress'
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
-import { buyColor, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, drawGearCapsule, GEAR_CAPSULE_PRICE, gearCapsuleCandidates, gearName, SHOP_COLORS } from './shop/catalog'
+import { buyColor, buyHat, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, drawGearCapsule, DUPLICATE_REFUND_PERCENT, GEAR_CAPSULE_PRICE, gearCapsulePool, gearName, SHOP_COLORS } from './shop/catalog'
 import './style.css'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
@@ -40,7 +41,7 @@ app.innerHTML = `
     <section id="story" class="page hidden"><div class="page-head"><div><h2>ストーリー</h2><p>AIと戦って、キャラや武器を少しずつ増やそう。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="story-toolbar"><label for="difficulty">むずかしさ</label><select id="difficulty"><option value="recommended" selected>おまかせ</option><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard">むずかしい</option></select><span>各ステージのおすすめ設定で始めます。ここで変更できます。</span></div>
       <div id="chapter-list" class="chapter-grid"></div></section>
-    <section id="fighter" class="page hidden"><div class="page-head"><div><h2>キャラと装備</h2><p>使うキャラ、武器、攻撃、スキルを選びます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
+    <section id="fighter" class="page hidden"><div class="page-head"><div><h2>キャラと装備</h2><p>使うキャラ、武器、攻撃、スキルと見た目を選びます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="fighter-grid">
         <div class="fighter-fields">
           <div class="selection"><label for="character">キャラ</label><select id="character"></select><p id="character-description" class="selection-description"></p><small id="character-ratings" class="ratings"></small></div>
@@ -48,14 +49,15 @@ app.innerHTML = `
           <div class="selection"><label for="attack">攻撃</label><select id="attack"></select><p id="attack-description" class="selection-description"></p></div>
           <div class="selection"><label for="skill">スキル（Iキー）</label><select id="skill"></select><p id="skill-description" class="selection-description"></p></div>
           <div class="selection"><label for="color">色</label><select id="color"></select><p id="color-description" class="selection-description"></p></div>
-          <div class="selection"><label>見た目アイテム</label><p class="selection-description">ショップやカプセルで色を増やせます。キャラと分身の色が変わります。</p></div>
-        </div><div class="inventory-panel"><p class="eyebrow">使えるもの・まだ使えないもの</p><div id="unlock-list"></div></div>
+          <div class="selection"><label for="hat">帽子</label><select id="hat"></select><p id="hat-description" class="selection-description"></p></div>
+        </div><div class="inventory-panel"><div class="fighter-preview-card"><canvas id="fighter-preview" width="400" height="190" role="img" aria-label="選択中のキャラと装備の見た目"></canvas><p id="fighter-preview-label"></p></div><p class="eyebrow">使えるもの・まだ使えないもの</p><div id="unlock-list"></div></div>
       </div></section>
-    <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、色や装備を増やせます。装備は使い方によって強みが変わります。</p></div><button class="button secondary back-menu">← メニュー</button></div>
-      <div class="shop-summary"><strong id="shop-coins"></strong><span>色は「キャラと装備」から選べます。</span></div>
+    <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、色や帽子、装備を増やせます。帽子は見た目だけが変わります。</p></div><button class="button secondary back-menu">← メニュー</button></div>
+      <div class="shop-summary"><strong id="shop-coins"></strong><span>買った色と帽子は「キャラと装備」から選べます。</span></div>
       <h3 class="shop-heading">好きな色を買う</h3><div id="shop-items" class="shop-grid"></div>
-      <h3 class="shop-heading">カプセルを引く</h3><div class="shop-capsule"><div><strong>色のカプセル</strong><p>まだ持っていない色が必ず1つ出ます。残りの色はすべて同じ確率です。</p><p id="capsule-odds"></p></div><button id="capsule-draw" class="button primary"></button></div>
-      <div class="shop-capsule"><div><strong>装備カプセル</strong><p>まだ使えない武器・攻撃・スキルが1つ出ます。攻撃は対応する武器を持つと候補に入ります。重複はなく、ストーリーでも解放できます。</p><p id="gear-capsule-odds"></p></div><button id="gear-capsule-draw" class="button primary"></button></div>
+      <h3 class="shop-heading">帽子を買う</h3><div id="shop-hats" class="shop-grid"></div>
+      <h3 class="shop-heading">カプセルを引く</h3><p class="shop-note">カプセルは持っているものも出ます。重複したら、使ったコインの${DUPLICATE_REFUND_PERCENT}%が戻ります。</p><div class="shop-capsule"><div><strong>色のカプセル</strong><p>4色から同じ確率で1色。重複しても引けます。</p><p id="capsule-odds"></p></div><button id="capsule-draw" class="button primary"></button></div>
+      <div class="shop-capsule"><div><strong>装備カプセル</strong><p>武器・攻撃・スキルから抽選。攻撃は対応する武器を持つと候補に入ります。重複しても引けます。</p><p id="gear-capsule-odds"></p></div><button id="gear-capsule-draw" class="button primary"></button></div>
       <p id="shop-status" class="status" role="status"></p></section>
     <section id="profile" class="page hidden"><div class="page-head"><div><h2>プロフィール</h2><p>レベルや戦績のまとめです。ログイン中はクラウドにも保存されます。</p></div><button class="button secondary back-menu">← メニュー</button></div><div id="profile-data" class="profile-grid"></div>
       <p class="profile-future">実績・称号・対戦履歴は準備中です。</p></section>
@@ -138,7 +140,7 @@ function renderMenu(): void {
   byId('menu-level').textContent = `レベル ${progress.playerLevel}  ·  ${progress.currentXp} / ${xpForNextLevel(progress.playerLevel)} XP  ·  ${progress.coins} コイン  ·  ${cloud.identity?.username ?? 'ゲスト'}`
 }
 const groupNames: Record<UnlockKind, string> = {
-  character: 'キャラ', weapon: '武器', attack: '攻撃', skill: 'スキル', color: '色',
+  character: 'キャラ', weapon: '武器', attack: '攻撃', skill: 'スキル', color: '色', hat: '帽子',
 }
 function addOptions(id: string, kind: UnlockKind, catalog: Record<string, { name: string; description: string }>, selected: string, weapon?: Weapon): void {
   const select = byId<HTMLSelectElement>(id)
@@ -161,16 +163,20 @@ function renderFighter(): void {
   addOptions('attack', 'attack', ATTACKS, selected.attack ?? 'basic_slash', selected.weapon)
   addOptions('skill', 'skill', SKILLS, selected.skill)
   addOptions('color', 'color', COLORS, selected.color ?? 'default')
+  addOptions('hat', 'hat', HATS, selected.hat ?? 'none')
   byId('character-description').textContent = CHARACTERS[selected.character].description
   byId('character-ratings').textContent = CHARACTERS[selected.character].ratings
   byId('weapon-description').textContent = WEAPONS[selected.weapon].description
   byId('attack-description').textContent = ATTACKS[selected.attack!].description
   byId('skill-description').textContent = SKILLS[selected.skill].description
   byId('color-description').textContent = COLORS[selected.color ?? 'default'].description
+  byId('hat-description').textContent = HATS[selected.hat ?? 'none'].description
+  drawFighterPreview(byId<HTMLCanvasElement>('fighter-preview'), selected, COLORS[selected.color ?? 'default'].hex)
+  byId('fighter-preview-label').textContent = `${CHARACTERS[selected.character].name} / ${WEAPONS[selected.weapon].name} / ${HATS[selected.hat ?? 'none'].name}`
   const list = byId('unlock-list')
   list.replaceChildren()
   const groups: [UnlockKind, Record<string, { name: string }>][] = [
-    ['character', CHARACTERS], ['weapon', WEAPONS], ['attack', ATTACKS], ['skill', SKILLS], ['color', COLORS],
+    ['character', CHARACTERS], ['weapon', WEAPONS], ['attack', ATTACKS], ['skill', SKILLS], ['color', COLORS], ['hat', HATS],
   ]
   for (const [kind, catalog] of groups) {
     const heading = document.createElement('h3'); heading.textContent = groupNames[kind]; list.append(heading)
@@ -183,14 +189,15 @@ function renderFighter(): void {
     }
   }
 }
-for (const id of ['character', 'weapon', 'attack', 'skill', 'color'] as const) {
+for (const id of ['character', 'weapon', 'attack', 'skill', 'color', 'hat'] as const) {
   byId<HTMLSelectElement>(id).addEventListener('change', () => {
     const candidate: Loadout = { ...progress.selectedLoadout,
       character: byId<HTMLSelectElement>('character').value as Character,
       weapon: byId<HTMLSelectElement>('weapon').value as Weapon,
       attack: byId<HTMLSelectElement>('attack').value as AttackStyle,
       skill: byId<HTMLSelectElement>('skill').value as Skill,
-      color: byId<HTMLSelectElement>('color').value }
+      color: byId<HTMLSelectElement>('color').value,
+      hat: byId<HTMLSelectElement>('hat').value }
     progress.selectedLoadout = sanitizeLoadout(progress, candidate)
     persist()
     renderFighter()
@@ -235,20 +242,37 @@ function renderShop(): void {
     })
     card.append(swatch, name, description, button); items.append(card)
   }
-  const available = CAPSULE_COLORS.filter(id => !progress.unlockedColors.includes(id))
-  byId('capsule-odds').textContent = available.length
-    ? `いま出る色：${available.map(id => colorName(id)).join(' / ')}（各 ${Math.round(100 / available.length)}%）`
-    : 'カプセルの色は全部そろいました。'
+  const hats = byId('shop-hats'); hats.replaceChildren()
+  for (const [id, item] of Object.entries(HATS)) {
+    if (id === 'none') continue
+    const card = document.createElement('article'); card.className = 'shop-card'
+    const preview = document.createElement('canvas'); preview.className = 'shop-hat-preview'
+    preview.width = 400; preview.height = 190
+    preview.setAttribute('role', 'img'); preview.setAttribute('aria-label', `${item.name}をかぶったキャラの見た目`)
+    const selected = progress.selectedLoadout
+    drawFighterPreview(preview, { ...selected, hat: id }, COLORS[selected.color ?? 'default'].hex)
+    const name = document.createElement('strong'); name.textContent = item.name
+    const description = document.createElement('p'); description.textContent = item.description
+    const button = document.createElement('button'); button.className = 'button secondary'
+    button.textContent = canUse(progress, 'hat', id) ? '持っています' : `${item.price} コインで買う`
+    button.disabled = canUse(progress, 'hat', id) || progress.coins < item.price
+    button.addEventListener('click', () => {
+      const result = buyHat(progress, id)
+      if (result.ok) persist()
+      renderShop()
+      byId('shop-status').textContent = result.ok ? `${item.name}を買いました。キャラと装備で選べます。` : result.reason
+    })
+    card.append(preview, name, description, button); hats.append(card)
+  }
+  byId('capsule-odds').textContent = `出る色：${CAPSULE_COLORS.map(id => colorName(id)).join(' / ')}（各 ${Math.round(100 / CAPSULE_COLORS.length)}%）`
   const draw = byId<HTMLButtonElement>('capsule-draw')
   draw.textContent = `${CAPSULE_PRICE} コインで1回引く`
-  draw.disabled = !available.length || progress.coins < CAPSULE_PRICE
-  const gear = gearCapsuleCandidates(progress)
-  byId('gear-capsule-odds').textContent = gear.length
-    ? `いま出る装備：${gear.map(item => gearName(item)).join(' / ')}（各 1/${gear.length}）`
-    : '装備カプセルの中身は全部そろいました。'
+  draw.disabled = progress.coins < CAPSULE_PRICE
+  const gear = gearCapsulePool(progress)
+  byId('gear-capsule-odds').textContent = `いま出る装備：${gear.map(item => gearName(item)).join(' / ')}（各 1/${gear.length}）`
   const gearDraw = byId<HTMLButtonElement>('gear-capsule-draw')
   gearDraw.textContent = `${GEAR_CAPSULE_PRICE} コインで1回引く`
-  gearDraw.disabled = !gear.length || progress.coins < GEAR_CAPSULE_PRICE
+  gearDraw.disabled = progress.coins < GEAR_CAPSULE_PRICE
 }
 async function renderProfile(): Promise<void> {
   let stats: RankedStats | undefined
@@ -550,13 +574,17 @@ byId('capsule-draw').addEventListener('click', () => {
   const result = drawCapsule(progress)
   if (result.ok) persist()
   renderShop()
-  byId('shop-status').textContent = result.ok ? `${colorName(result.color)}が出ました！ キャラと装備で選べます。` : result.reason
+  byId('shop-status').textContent = result.ok ? result.duplicate
+    ? `${colorName(result.color)}は持っています。${result.refund}コインが戻りました。`
+    : `${colorName(result.color)}が出ました！ キャラと装備で選べます。` : result.reason
 })
 byId('gear-capsule-draw').addEventListener('click', () => {
   const result = drawGearCapsule(progress)
   if (result.ok) persist()
   renderShop()
-  byId('shop-status').textContent = result.ok ? `${gearName(result.item)}が出ました！ キャラと装備で選べます。` : result.reason
+  byId('shop-status').textContent = result.ok ? result.duplicate
+    ? `${gearName(result.item)}は持っています。${result.refund}コインが戻りました。`
+    : `${gearName(result.item)}が出ました！ キャラと装備で選べます。` : result.reason
 })
 for (const button of document.querySelectorAll<HTMLButtonElement>('.back-menu')) button.addEventListener('click', () => showScreen('menu'))
 byId('auth-signup-mode').addEventListener('click', () => setAuthMode('signup'))

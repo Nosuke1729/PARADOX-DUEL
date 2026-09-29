@@ -16,7 +16,7 @@ test('new pilots start with only NORMAL, SWORD, BLINK and BASIC SLASH', () => {
   assert.equal(isChapterAvailable(progress, 1), true)
   assert.equal(isChapterAvailable(progress, 2), false)
   assert.deepEqual(sanitizeLoadout(progress, { character: 'light', weapon: 'blaster', skill: 'shield', attack: 'blaster_shot' }),
-    { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash', color: 'default' })
+    { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash', color: 'default', hat: 'none' })
 })
 
 test('XP thresholds grow and first two story victories unlock LIGHT', () => {

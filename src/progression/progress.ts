@@ -1,7 +1,7 @@
 import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from '../game/balance'
 import { DEFAULT_LOADOUT, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from '../game/types'
 import { chapterById } from '../story/chapters'
-import { COLORS, GEAR_CAPSULE_ITEMS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
+import { COLORS, GEAR_CAPSULE_ITEMS, HATS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
 
 export const PROGRESS_KEY = 'paradox-duel:progress:v1'
 export interface MasteryProgress { level: number; currentXp: number; totalXp: number }
@@ -46,7 +46,8 @@ export function hydrateProgress(raw: unknown): PlayerProgress {
   progress.coins = nonnegative(source.coins)
   progress.onlineWins = nonnegative(source.onlineWins)
   progress.onlineLosses = nonnegative(source.onlineLosses)
-  progress.ownedCosmetics = [...new Set(names(source.ownedCosmetics).filter(id => id in COLORS && id !== 'default' && id !== 'arc_cyan'))]
+  progress.ownedCosmetics = [...new Set(names(source.ownedCosmetics).filter(id =>
+    id in COLORS && id !== 'default' && id !== 'arc_cyan' || id.startsWith('hat:') && Object.hasOwn(HATS, id.slice(4)) && id !== 'hat:none'))]
   const gearKeys = new Set(GEAR_CAPSULE_ITEMS.map(item => `${item.kind}:${item.id}`))
   progress.ownedGear = [...new Set(names(source.ownedGear).filter(id => gearKeys.has(id)))]
   const story = record(source.storyProgress)
@@ -87,6 +88,7 @@ function conditionMet(progress: PlayerProgress, condition: UnlockCondition): boo
 export function canUse(progress: PlayerProgress, kind: UnlockKind, id: string): boolean {
   if ((STARTER_UNLOCKS[kind] as string[]).includes(id)) return true
   if (kind === 'color' && id in COLORS && progress.ownedCosmetics.includes(id)) return true
+  if (kind === 'hat' && Object.hasOwn(HATS, id) && progress.ownedCosmetics.includes(`hat:${id}`)) return true
   if (progress.ownedGear.includes(`${kind}:${id}`)) return true
   const rule = unlockRule(kind, id)
   return Boolean(rule && rule.anyOf.some(condition => conditionMet(progress, condition)))
@@ -100,6 +102,7 @@ export function syncUnlocks(progress: PlayerProgress): ProgressEvent[] {
     ...progress.unlockedCharacters.map(id => `character:${id}`), ...progress.unlockedWeapons.map(id => `weapon:${id}`),
     ...progress.unlockedSkills.map(id => `skill:${id}`), ...progress.unlockedAttacks.map(id => `attack:${id}`),
     ...progress.unlockedColors.map(id => `color:${id}`),
+    ...Object.keys(HATS).filter(id => canUse(progress, 'hat', id)).map(id => `hat:${id}`),
   ])
   // Rules are ordered so weapon-based attack unlocks resolve after weapons.
   progress.unlockedCharacters = (Object.keys(CHARACTERS) as Character[]).filter(id => canUse(progress, 'character', id))
@@ -113,7 +116,7 @@ export function syncUnlocks(progress: PlayerProgress): ProgressEvent[] {
   progress.unlockedColors = Object.keys(COLORS).filter(id => canUse(progress, 'color', id))
   progress.selectedLoadout = sanitizeLoadout(progress, progress.selectedLoadout)
   return UNLOCK_RULES.filter(rule => canUse(progress, rule.kind, rule.id) && !before.has(`${rule.kind}:${rule.id}`))
-    .map(rule => ({ kind: 'unlock', title: '使えるものが増えました！', detail: `${rule.name} / ${rule.kind === 'character' ? 'キャラ' : rule.kind === 'weapon' ? '武器' : rule.kind === 'attack' ? '攻撃' : rule.kind === 'skill' ? 'スキル' : '色'}` }))
+    .map(rule => ({ kind: 'unlock', title: '使えるものが増えました！', detail: `${rule.name} / ${rule.kind === 'character' ? 'キャラ' : rule.kind === 'weapon' ? '武器' : rule.kind === 'attack' ? '攻撃' : rule.kind === 'skill' ? 'スキル' : rule.kind === 'hat' ? '帽子' : '色'}` }))
 }
 export function sanitizeLoadout(progress: PlayerProgress, value: unknown): Loadout {
   const input = record(value)
@@ -128,7 +131,9 @@ export function sanitizeLoadout(progress: PlayerProgress, value: unknown): Loado
     ? input.attack as AttackStyle : DEFAULT_ATTACK[weapon]
   const color = typeof input.color === 'string' && input.color in COLORS && canUse(progress, 'color', input.color)
     ? input.color : 'default'
-  return { character, weapon, skill, attack, color }
+  const hat = typeof input.hat === 'string' && Object.hasOwn(HATS, input.hat) && canUse(progress, 'hat', input.hat)
+    ? input.hat : 'none'
+  return { character, weapon, skill, attack, color, hat }
 }
 export function isChapterAvailable(progress: PlayerProgress, chapterId: number): boolean {
   return Boolean(chapterById(chapterId) && (chapterId === 1 || progress.storyProgress.clearedChapters.includes(chapterId - 1)))

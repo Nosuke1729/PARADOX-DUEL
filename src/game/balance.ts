@@ -1,4 +1,5 @@
 import type { AttackStyle, Character, Loadout, Skill, Slot, Weapon } from './types'
+import { HATS } from './cosmetics'
 
 export interface CharacterConfig {
   name: string; subtitle: string; description: string; hp: number; moveSpeed: number
@@ -57,6 +58,7 @@ export function isLoadout(value: unknown): value is Loadout {
   return typeof input.character === 'string' && input.character in CHARACTERS &&
     typeof input.weapon === 'string' && input.weapon in WEAPONS &&
     typeof input.skill === 'string' && input.skill in SKILLS &&
+    (input.hat === undefined || typeof input.hat === 'string' && Object.hasOwn(HATS, input.hat)) &&
     (input.attack === undefined || typeof input.attack === 'string' && input.attack in ATTACKS && ATTACKS[input.attack as AttackStyle].weapon === input.weapon)
 }
 export function damageFor(loadout: Loadout, practiceBot = false): number {
