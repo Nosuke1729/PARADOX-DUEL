@@ -1,6 +1,7 @@
-import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js'
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import { isLoadout } from '../game/balance'
 import type { Controls, Loadout, MatchEvent, Slot, Snapshot } from '../game/types'
+import { supabaseClient } from './client'
 
 export interface InputPacket {
   matchId: string
@@ -45,10 +46,7 @@ export class RoomManager {
   }
 
   private static async session(): Promise<{ client: SupabaseClient; userId: string }> {
-    const url = import.meta.env.VITE_SUPABASE_URL
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-    if (!url || !key) throw new Error('Supabase 設定がありません。.env.local を確認してください。')
-    const client = createClient(url, key)
+    const client = supabaseClient()
     const existing = await client.auth.getUser()
     if (existing.data.user) {
       await client.realtime.setAuth()
@@ -81,6 +79,16 @@ export class RoomManager {
     if (error || !data?.[0]) throw new Error(error?.message ?? 'ルームが見つからないか、満員です')
     const row = data[0] as RoomRow
     return new RoomManager(client, userId, row, row.host_id === userId ? 1 : 2, loadout)
+  }
+
+  static async ranked(row: { room_id: string; player1: string; player2: string; loadout1: Loadout; loadout2: Loadout }): Promise<RoomManager> {
+    const { client, userId } = await this.session()
+    if (userId !== row.player1 && userId !== row.player2) throw new Error('Ranked match membership is invalid')
+    const slot: Slot = userId === row.player1 ? 1 : 2
+    const loadout = slot === 1 ? row.loadout1 : row.loadout2
+    return new RoomManager(client, userId, {
+      room_id: row.room_id, room_code: 'RANKED', host_id: row.player1, guest_id: row.player2,
+    }, slot, loadout)
   }
 
   roster(): Partial<Record<Slot, Loadout>> {

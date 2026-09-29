@@ -14,10 +14,12 @@ export interface BattleOptions {
   mode: 'practice' | 'online' | 'story'
   story?: StoryChapter
   room?: RoomManager
+  playerNames?: [string, string]
   loadouts: [Loadout, Loadout]
   onMatchEnd: (message: string, result: 'win' | 'loss' | 'draw') => void
   onNewMatch: () => void
   onDisconnect: () => void
+  onReconnect?: () => void
 }
 
 export class BattleScene extends Phaser.Scene {
@@ -96,8 +98,8 @@ export class BattleScene extends Phaser.Scene {
     this.bottomText = this.add.text(480, 515, '', { ...style, fontSize: '14px' }).setOrigin(0.5).setDepth(11)
     this.leftText = this.add.text(30, 9, '', { ...style, fontSize: '12px', color: '#70efeb' }).setDepth(11)
     this.rightText = this.add.text(930, 9, '', { ...style, fontSize: '12px', color: '#ff9094' }).setOrigin(1, 0).setDepth(11)
-    this.leftText.setText(`${CHARACTERS[this.fighters[0].loadout.character].name} / ${WEAPONS[this.fighters[0].loadout.weapon].name} / ${SKILLS[this.fighters[0].loadout.skill].name}`)
-    this.rightText.setText(`${CHARACTERS[this.fighters[1].loadout.character].name} / ${WEAPONS[this.fighters[1].loadout.weapon].name} / ${SKILLS[this.fighters[1].loadout.skill].name}`)
+    this.leftText.setText(`${this.options.playerNames?.[0] ? this.options.playerNames[0] + ' / ' : ''}${CHARACTERS[this.fighters[0].loadout.character].name} / ${WEAPONS[this.fighters[0].loadout.weapon].name} / ${SKILLS[this.fighters[0].loadout.skill].name}`)
+    this.rightText.setText(`${this.options.playerNames?.[1] ? this.options.playerNames[1] + ' / ' : ''}${CHARACTERS[this.fighters[1].loadout.character].name} / ${WEAPONS[this.fighters[1].loadout.weapon].name} / ${SKILLS[this.fighters[1].loadout.skill].name}`)
     if (this.options.room) {
       this.options.room.onInput = packet => this.onInput(packet)
       this.options.room.onSnapshot = snapshot => this.onSnapshot(snapshot)
@@ -544,6 +546,7 @@ export class BattleScene extends Phaser.Scene {
 
   private onPresence(count: number): void {
     if (count >= 2) {
+      if (this.absenceTimer) this.options.onReconnect?.()
       if (this.absenceTimer) window.clearTimeout(this.absenceTimer)
       this.absenceTimer = undefined
     } else if (!this.absenceTimer) {
@@ -552,6 +555,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private onConnection(connected: boolean): void {
+    if (connected && this.connectionLost) this.options.onReconnect?.()
     this.connectionLost = !connected
     if (connected) {
       if (this.absenceTimer) window.clearTimeout(this.absenceTimer)

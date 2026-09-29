@@ -48,9 +48,11 @@ npm run dev
 
 Chapter 1 `AWAKENING`、2 `SPEED`、3 `RANGE`、4 `POWER`、5 `ECHO` が遊べます。AI難易度は推奨値か EASY / NORMAL / HARD を選べます。初回クリアはChapterごとのXPとCoinsを獲得し、再クリアでも少額を獲得します。Player Lv.1→2には100 XP、以後必要XPはレベルごとに50ずつ増えます。
 
-進行状況、装備、熟練度、戦績はこのブラウザーの `localStorage` に保存します（キー `paradox-duel:progress:v1`）。別端末やブラウザーへの同期は未実装です。Private Roomではレベル・Coins・MasteryによるHP/攻撃力/速度補正を掛けません。Attack Styleは解放した選択肢として使えます。正式なRankedはまだ実装していません。
+未ログイン時の進行状況はこのブラウザーの `localStorage` に保存します（キー `paradox-duel:progress:v1`）。メールアドレスとパスワードでACCOUNTを作成し、確認メールの認証後にログインすると、既存のローカル進行を初回だけCloudへ移します。以後はCloudを優先し、同じブラウザーにもバックアップを保存します。別端末で同じアカウントにログインするとCloudの進行を復元します。Cloud保存が失敗した場合は画面に警告を出し、ローカルバックアップを保持します。複数端末で同時に進行を更新した場合はリビジョン競合として保存を止め、XPやCoinsを二重加算しません。
 
-解放条件は [`src/progression/catalog.ts`](src/progression/catalog.ts)、Chapter/報酬/Bossは [`src/story/chapters.ts`](src/story/chapters.ts)、AI難易度は [`src/story/StoryAI.ts`](src/story/StoryAI.ts) で変更できます。将来のアカウント同期向けに進行状態は [`src/progression/progress.ts`](src/progression/progress.ts) の単一モデルにまとめています。既存のSupabase対戦用DBには変更を加えていません。
+`ONLINE → RANKED` はログインと一意のUsernameが必要です。近いRatingの相手を探し、待機時間に応じて範囲を広げます。対戦結果は両プレイヤーの申告が一致した場合、または切断タイムアウト時にDBトランザクションで一度だけ確定します。対戦途中の退出は敗北扱いです。Rankedは基礎ステータスにPlayer Level・Coins・Masteryの永続補正を掛けません。現段階では対戦ホストが戦闘を進行し、専用サーバーによる命中検証はありません。Rankedの厳密な不正対策は今後の課題です。
+
+解放条件は [`src/progression/catalog.ts`](src/progression/catalog.ts)、Chapter/報酬/Bossは [`src/story/chapters.ts`](src/story/chapters.ts)、AI難易度は [`src/story/StoryAI.ts`](src/story/StoryAI.ts) で変更できます。進行状態は [`src/progression/progress.ts`](src/progression/progress.ts) の単一モデルで、Cloud保存にそのまま使用します。Rating、Tier、Matchmaking幅は [`src/ranked/config.ts`](src/ranked/config.ts) とDBの `ranked_settings` で設定します。
 
 | Character | 性能 | 説明 |
 | --- | --- | --- |
@@ -75,10 +77,11 @@ Chapter 1 `AWAKENING`、2 `SPEED`、3 `RANGE`、4 `POWER`、5 `ECHO` が遊べ�
 
 1. プロジェクトの Auth で **Anonymous Sign-Ins** を有効にします。恒久アカウントは不要ですが、各ブラウザを一意に識別するために使います。
 2. [`supabase/migrations/20260928082725_duel_rooms.sql`](supabase/migrations/20260928082725_duel_rooms.sql) を適用します。このリポジトリが接続する既存の `PARADOX DUEL` プロジェクトには適用済みです。
-3. `.env.local` にそのプロジェクトの URL と **publishable key** を設定します。
-4. Realtime の private channel と room membership RLS が使われます。部屋を作れない場合は Auth と `Realtime → Policies`、ブラウザのエラー表示を確認してください。
+3. Account / Cloud / Ranked 用の残りの `supabase/migrations` をファイル名順に適用します。既存の `PARADOX DUEL` プロジェクトには適用済みです。AuthのEmail認証を有効にし、確認メールのSite URL / Redirect URLへ公開先URLを設定します。
+4. `.env.local` にそのプロジェクトの URL と **publishable key** を設定します。GitHub Pagesでは同名のRepository Variablesを使用します。
+5. Realtime の private channel と room membership RLS が使われます。部屋を作れない場合は Auth と `Realtime → Policies`、ブラウザのエラー表示を確認してください。
 
-Room code は招待用です。対戦中は部屋を作成した端末が移動・命中・HP・結果を確定し、参加端末へスナップショットを送ります。友人対戦を対象としており、ホストによる改造を防ぐ構成ではありません。Ranked にはサーバー権威の別構成が必要です。
+Room code は招待用です。Private Room対戦中は部屋を作成した端末が移動・命中・HP・結果を確定し、参加端末へスナップショットを送ります。Rankedも現在の戦闘同期方式を利用しますが、Rating更新はDB側で一試合一度だけ処理します。`profiles` と `player_progress`、`ranked_stats`、`ranked_queue`、`ranked_matches` にRLSを設定し、Ranking RPCはUsername・Rating・Winsと順位だけを返します。
 
 ## 開発
 
@@ -87,4 +90,4 @@ npm test
 npm run build
 ```
 
-設計の判断、MVP の条件、テスト方針は [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) にあります。Ranked、Shop、ガチャ、アカウント間の進行同期はまだありません。
+設計の判断、MVP の条件、テスト方針は [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) にあります。Shopとガチャはまだありません。
