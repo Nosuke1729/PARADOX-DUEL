@@ -17,6 +17,19 @@ export interface UnlockRule {
   hint: string
 }
 
+export type GearKind = 'weapon' | 'attack' | 'skill'
+export interface GearCapsuleItem { kind: GearKind; id: string }
+// Equipment can also be earned through the rules below. The capsule is an early alternative.
+export const GEAR_CAPSULE_ITEMS: readonly GearCapsuleItem[] = [
+  { kind: 'weapon', id: 'spear' }, { kind: 'weapon', id: 'blaster' },
+  { kind: 'weapon', id: 'dagger' }, { kind: 'weapon', id: 'hammer' }, { kind: 'weapon', id: 'fan' },
+  { kind: 'attack', id: 'heavy_slash' }, { kind: 'attack', id: 'upper_slash' },
+  { kind: 'attack', id: 'spear_sweep' }, { kind: 'attack', id: 'charged_shot' },
+  { kind: 'attack', id: 'dagger_lunge' }, { kind: 'attack', id: 'hammer_upper' }, { kind: 'attack', id: 'fan_gust' },
+  { kind: 'skill', id: 'shield' }, { kind: 'skill', id: 'shockwave' },
+  { kind: 'skill', id: 'echo_swap' }, { kind: 'skill', id: 'spring' },
+]
+
 // Conditions are ORed. Initial equipment is handled by STARTER_UNLOCKS.
 export const UNLOCK_RULES: readonly UnlockRule[] = [
   { kind: 'weapon', id: 'spear', name: WEAPONS.spear.name, anyOf: [{ type: 'level', level: 3 }], hint: 'レベル3で使えます' },
@@ -39,6 +52,10 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
   { kind: 'attack', id: 'dagger_lunge', name: ATTACKS.dagger_lunge.name, anyOf: [{ type: 'chapter', chapter: 8 }], hint: 'ステージ8をクリア' },
   { kind: 'attack', id: 'hammer_smash', name: ATTACKS.hammer_smash.name, anyOf: [{ type: 'weapon', weapon: 'hammer' }], hint: 'HAMMERを使えるようになる' },
   { kind: 'attack', id: 'hammer_upper', name: ATTACKS.hammer_upper.name, anyOf: [{ type: 'chapter', chapter: 8 }], hint: 'ステージ8をクリア' },
+  { kind: 'weapon', id: 'fan', name: WEAPONS.fan.name, anyOf: [{ type: 'chapter', chapter: 9 }], hint: 'ステージ9をクリア' },
+  { kind: 'attack', id: 'fan_swat', name: ATTACKS.fan_swat.name, anyOf: [{ type: 'weapon', weapon: 'fan' }], hint: 'FANを使えるようになる' },
+  { kind: 'skill', id: 'spring', name: SKILLS.spring.name, anyOf: [{ type: 'chapter', chapter: 10 }], hint: 'ステージ10をクリア' },
+  { kind: 'attack', id: 'fan_gust', name: ATTACKS.fan_gust.name, anyOf: [{ type: 'chapter', chapter: 11 }], hint: 'ステージ11をクリア' },
   { kind: 'color', id: 'mint', name: 'ミント', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'peach', name: 'もも', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'lemon', name: 'レモン', anyOf: [], hint: 'ショップで購入' },

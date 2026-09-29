@@ -261,13 +261,13 @@ export class BattleScene extends Phaser.Scene {
     const player = this.fighters[0]
     const distance = player.x - bot.x
     const toward = Math.sign(distance) || 1
-    const preferred = bot.loadout.weapon === 'spear' ? 120 : bot.loadout.weapon === 'blaster' ? 260 : bot.loadout.weapon === 'dagger' ? 55 : 77
+    const preferred = bot.loadout.weapon === 'spear' ? 120 : bot.loadout.weapon === 'blaster' ? 260 : bot.loadout.weapon === 'dagger' ? 55 : bot.loadout.weapon === 'fan' ? 58 : 77
     const move = Math.abs(distance) > preferred ? toward : Math.abs(distance) < preferred - 35 ? -toward : 0
     const held: Controls = {
       ...EMPTY_CONTROLS,
       left: move < 0,
       right: move > 0,
-      attack: Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 500 : bot.loadout.weapon === 'spear' ? 155 : bot.loadout.weapon === 'dagger' ? 72 : 105) && Math.abs(player.y - bot.y) < 62 && this.tick % 95 < 2,
+      attack: Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 500 : bot.loadout.weapon === 'spear' ? 155 : bot.loadout.weapon === 'dagger' ? 72 : bot.loadout.weapon === 'fan' ? 86 : 105) && Math.abs(player.y - bot.y) < 62 && this.tick % 95 < 2,
       jump: this.tick % 190 < 2 && player.y < bot.y - 60,
       dash: Math.abs(distance) > 280 && this.tick % 210 < 2,
       echo: bot.recorder.ready() && bot.echoCooldown === 0 && this.tick % 780 < 2,
@@ -320,6 +320,9 @@ export class BattleScene extends Phaser.Scene {
       fighter.teleport(echo.x, echo.y)
       echo.relocate(beforeX, beforeY)
       this.effects.push({ x: fighter.x, y: fighter.y, radius: 45, frames: 18, color: fighter.color })
+    } else if (skill === 'spring') {
+      fighter.body.setVelocityY(-780)
+      this.effects.push({ x: fighter.x, y: fighter.y + 22, radius: 34, frames: 18, color: fighter.color })
     }
     fighter.skillCooldown = SKILLS[skill].cooldown
     if (authoritative) this.options.room?.sendEvent({ kind: 'skill', matchId: this.matchId, round: this.round,
@@ -532,6 +535,7 @@ export class BattleScene extends Phaser.Scene {
       if (event.skill === 'blink' || event.skill === 'echo_swap') fighter.teleport(event.x, event.y)
       if (event.skill === 'shield') fighter.shieldFrames = 48
       if (event.skill === 'shockwave') this.effects.push({ x: event.x, y: event.y, radius: 155, frames: 20, color: fighter.color })
+      if (event.skill === 'spring') this.effects.push({ x: event.x, y: event.y + 22, radius: 34, frames: 18, color: fighter.color })
       if (event.skill === 'echo_swap' && event.echoId !== undefined) {
         const echo = this.echoes.find(item => item.owner === event.slot && item.packet.echoId === event.echoId)
         if (echo && event.echoX !== undefined && event.echoY !== undefined) echo.relocate(event.echoX, event.echoY)

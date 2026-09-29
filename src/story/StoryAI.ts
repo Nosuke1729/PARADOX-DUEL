@@ -29,12 +29,12 @@ export class StoryAI {
     const reaction = Math.max(4, Math.round(base.reactionDelay * (secondPhase ? 0.65 : 1)))
     const distance = player.x - bot.x
     const toward = Math.sign(distance) || 1
-    const range = bot.loadout.weapon === 'blaster' ? 265 : bot.loadout.weapon === 'spear' ? 122 : bot.loadout.weapon === 'dagger' ? 51 : 72
+    const range = bot.loadout.weapon === 'blaster' ? 265 : bot.loadout.weapon === 'spear' ? 122 : bot.loadout.weapon === 'dagger' ? 51 : bot.loadout.weapon === 'fan' ? 56 : 72
     const retreating = bot.hp / bot.maxHp < 0.28 && !secondPhase
     if (tick % reaction === 0) {
       this.move = Math.abs(distance) > range + 15 ? toward : Math.abs(distance) < range - 35 || retreating ? -toward : 0
     }
-    const targetInRange = Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 550 : bot.loadout.weapon === 'spear' ? 150 : bot.loadout.weapon === 'dagger' ? 75 : 105) && Math.abs(player.y - bot.y) < 74
+    const targetInRange = Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 550 : bot.loadout.weapon === 'spear' ? 150 : bot.loadout.weapon === 'dagger' ? 75 : bot.loadout.weapon === 'fan' ? 85 : 105) && Math.abs(player.y - bot.y) < (bot.loadout.weapon === 'fan' ? 95 : 74)
     const attackInterval = Math.round((this.difficulty === 'easy' ? 94 : this.difficulty === 'normal' ? 71 : 54) / (secondPhase ? 1.25 : 1))
     const attack = targetInRange && tick - this.lastAttack >= attackInterval && this.random() < Math.min(1, base.aggression + (secondPhase ? 0.12 : 0))
     const dodge = player.attackFrame > 0 && Math.abs(distance) < 165 && this.random() < base.dodgeChance / reaction

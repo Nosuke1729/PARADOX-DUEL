@@ -23,12 +23,14 @@ export const WEAPONS: Record<Weapon, WeaponConfig> = {
   blaster: { name: 'BLASTER', subtitle: '遠距離', description: '弾を発射して遠くから攻撃する。威力が低く、接近戦では発生の遅さが弱点。', startup: 15, active: 1, total: 41, damage: 8, reach: 0, height: 0, projectileSpeed: 610 },
   dagger: { name: 'DAGGER', subtitle: '近距離・速攻', description: '短いリーチの代わりに、すばやく続けて攻撃できる短剣。', startup: 4, active: 5, total: 17, damage: 8, reach: 47, height: 39 },
   hammer: { name: 'HAMMER', subtitle: '近距離・一撃', description: '振りは遅いけれど、当たると大きく吹き飛ばすハンマー。', startup: 20, active: 7, total: 53, damage: 24, reach: 75, height: 51 },
+  fan: { name: 'FAN', subtitle: '対空・広め', description: '扇で広くはたく。ジャンプした相手に強いが、威力と正面の射程は控えめ。', startup: 13, active: 8, total: 35, damage: 10, reach: 58, height: 79 },
 }
 export const SKILLS: Record<Skill, SkillConfig> = {
   blink: { name: 'BLINK', subtitle: '8秒', description: '向いている方向へ短距離瞬間移動。回避、接近、Echoとの位置合わせに使う。', cooldown: 480 },
   shield: { name: 'SHIELD', subtitle: '10秒', description: '約0.8秒間ダメージとノックバックを防ぐ。攻撃を読んで使う。', cooldown: 600 },
   shockwave: { name: 'SHOCKWAVE', subtitle: '12秒', description: '周囲の敵を吹き飛ばす衝撃波。ダメージより位置操作を重視する。', cooldown: 720 },
   echo_swap: { name: 'ECHO SWAP', subtitle: '10秒', description: '自分のEchoが出ている間だけ、本体とEchoの位置を入れ替える。', cooldown: 600 },
+  spring: { name: 'SPRING', subtitle: '10秒', description: '上へ大きくジャンプ。空中でも使えるが、飛んでいる間は攻撃を受ける。', cooldown: 600 },
 }
 export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   basic_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'BASIC SLASH', subtitle: '標準', description: '素早く振るう標準の斬撃。' },
@@ -42,8 +44,10 @@ export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   dagger_lunge: { ...WEAPONS.dagger, weapon: 'dagger', name: 'LONG STAB', subtitle: '踏み込み', description: '少し遅いけれど、遠めまで届く短剣の突き。', startup: 12, total: 32, damage: 12, reach: 91 },
   hammer_smash: { ...WEAPONS.hammer, weapon: 'hammer', name: 'HAMMER SMASH', subtitle: '標準', description: '大きく振り下ろして、相手を吹き飛ばす。', knockback: 1.4 },
   hammer_upper: { ...WEAPONS.hammer, weapon: 'hammer', name: 'UPPER HAMMER', subtitle: '対空', description: '上に向かって振る。ジャンプした相手にも当てやすい。', startup: 22, active: 7, total: 56, damage: 20, reach: 55, height: 93, verticalOffset: -23, knockback: 1.55 },
+  fan_swat: { ...WEAPONS.fan, weapon: 'fan', name: 'FAN SWAT', subtitle: '標準', description: '広い縦の当たり判定で、跳ぶ相手をはたく。威力は低め。', verticalOffset: -10 },
+  fan_gust: { ...WEAPONS.fan, weapon: 'fan', name: 'FAN GUST', subtitle: '押し出し', description: 'ゆっくり振って遠めの相手を押す。ダメージは小さく、外すと隙が大きい。', startup: 21, active: 7, total: 52, damage: 7, reach: 103, height: 56, knockback: 1.45 },
 }
-export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash' }
+export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat' }
 export function attackFor(weapon: Weapon, attack?: AttackStyle): AttackConfig {
   return attack && ATTACKS[attack]?.weapon === weapon ? ATTACKS[attack] : ATTACKS[DEFAULT_ATTACK[weapon]]
 }

@@ -45,6 +45,17 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     enemy: { character: 'standard', weapon: 'dagger', skill: 'echo_swap', attack: 'dagger_lunge' }, difficulty: 'hard',
     boss: { id: 'mix_master', hpMultiplier: 1.6, phaseAt: 0.45, special: 'echo_pressure' }, rewardXp: 550, rewardCoins: 340,
     arena: { platformX: 352, platformY: 315, platformWidth: 255, accent: 0xb5a5ec } },
+  { id: 9, title: 'とんでる相手に扇', subtitle: '上下に広い攻撃', briefing: '扇使いはジャンプした相手を狙います。横から近づくか、分身を先に出してみよう。', enemyName: '扇使い',
+    enemy: { character: 'standard', weapon: 'fan', skill: 'blink', attack: 'fan_swat' }, difficulty: 'normal', rewardXp: 620, rewardCoins: 380,
+    arena: { platformX: 145, platformY: 327, platformWidth: 235, accent: 0x97d9c2 } },
+  { id: 10, title: '跳びすぎ注意', subtitle: '空中から来る相手', briefing: 'SPRINGで急に高く跳ぶ相手。着地先を読んで待ち受けよう。', enemyName: '跳ねるファイター',
+    enemy: { character: 'light', weapon: 'sword', skill: 'spring', attack: 'upper_slash' }, difficulty: 'hard',
+    boss: { id: 'spring_fighter', hpMultiplier: 1.45, phaseAt: 0.45, special: 'dash_burst' }, rewardXp: 700, rewardCoins: 420,
+    arena: { platformX: 568, platformY: 348, platformWidth: 240, accent: 0x8fc9f1 } },
+  { id: 11, title: '扇と分身で大混乱', subtitle: '間合いを見極めよう', briefing: '押し出す扇と分身を組み合わせてきます。近づきすぎず、攻撃後の隙を狙おう。', enemyName: '扇の達人',
+    enemy: { character: 'standard', weapon: 'fan', skill: 'echo_swap', attack: 'fan_gust' }, difficulty: 'hard',
+    boss: { id: 'fan_master', hpMultiplier: 1.55, phaseAt: 0.5, special: 'echo_pressure' }, rewardXp: 780, rewardCoins: 500,
+    arena: { platformX: 352, platformY: 322, platformWidth: 255, accent: 0xf0b3df } },
 ]
 
 export function chapterById(id: number): StoryChapter | undefined { return STORY_CHAPTERS.find(chapter => chapter.id === id) }

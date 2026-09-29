@@ -1,5 +1,6 @@
-import { COLORS } from '../progression/catalog'
-import type { PlayerProgress } from '../progression/progress'
+import { ATTACKS, SKILLS, WEAPONS } from '../game/balance'
+import { COLORS, GEAR_CAPSULE_ITEMS, type GearCapsuleItem } from '../progression/catalog'
+import { canUse, syncUnlocks, type PlayerProgress } from '../progression/progress'
 
 export const SHOP_COLORS = [
   { id: 'mint', price: 140 },
@@ -9,6 +10,7 @@ export const SHOP_COLORS = [
 
 export const CAPSULE_COLORS = ['grape', 'soda', 'sunset', 'star'] as const
 export const CAPSULE_PRICE = 90
+export const GEAR_CAPSULE_PRICE = 220
 
 export type ShopResult = { ok: true; color: string } | { ok: false; reason: string }
 
@@ -37,3 +39,28 @@ export function drawCapsule(progress: PlayerProgress, random = Math.random): Sho
 }
 
 export function colorName(id: string): string { return COLORS[id]?.name ?? id }
+
+export type GearResult = { ok: true; item: GearCapsuleItem } | { ok: false; reason: string }
+
+export function gearCapsuleCandidates(progress: PlayerProgress): GearCapsuleItem[] {
+  return GEAR_CAPSULE_ITEMS.filter(item => !canUse(progress, item.kind, item.id) &&
+    (item.kind !== 'attack' || canUse(progress, 'weapon', ATTACKS[item.id as keyof typeof ATTACKS].weapon)))
+}
+
+export function drawGearCapsule(progress: PlayerProgress, random = Math.random): GearResult {
+  const available = gearCapsuleCandidates(progress)
+  if (!available.length) return { ok: false, reason: '装備カプセルの中身は全部そろっています。' }
+  if (progress.coins < GEAR_CAPSULE_PRICE) return { ok: false, reason: 'コインが足りません。' }
+  const pick = Math.min(available.length - 1, Math.max(0, Math.floor(random() * available.length)))
+  const item = available[pick]
+  progress.coins -= GEAR_CAPSULE_PRICE
+  progress.ownedGear.push(`${item.kind}:${item.id}`)
+  syncUnlocks(progress)
+  return { ok: true, item }
+}
+
+export function gearName(item: GearCapsuleItem): string {
+  return item.kind === 'weapon' ? WEAPONS[item.id as keyof typeof WEAPONS].name
+    : item.kind === 'attack' ? ATTACKS[item.id as keyof typeof ATTACKS].name
+      : SKILLS[item.id as keyof typeof SKILLS].name
+}

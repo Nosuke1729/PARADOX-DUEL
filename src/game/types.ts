@@ -1,9 +1,9 @@
 export type Slot = 1 | 2
 export type Phase = 'menu' | 'lobby' | 'countdown' | 'playing' | 'round_end' | 'match_end'
 export type Character = 'standard' | 'light' | 'heavy'
-export type Weapon = 'sword' | 'spear' | 'blaster' | 'dagger' | 'hammer'
-export type Skill = 'blink' | 'shield' | 'shockwave' | 'echo_swap'
-export type AttackStyle = 'basic_slash' | 'heavy_slash' | 'upper_slash' | 'spear_thrust' | 'spear_sweep' | 'blaster_shot' | 'charged_shot' | 'dagger_stab' | 'dagger_lunge' | 'hammer_smash' | 'hammer_upper'
+export type Weapon = 'sword' | 'spear' | 'blaster' | 'dagger' | 'hammer' | 'fan'
+export type Skill = 'blink' | 'shield' | 'shockwave' | 'echo_swap' | 'spring'
+export type AttackStyle = 'basic_slash' | 'heavy_slash' | 'upper_slash' | 'spear_thrust' | 'spear_sweep' | 'blaster_shot' | 'charged_shot' | 'dagger_stab' | 'dagger_lunge' | 'hammer_smash' | 'hammer_upper' | 'fan_swat' | 'fan_gust'
 
 export interface Loadout { character: Character; weapon: Weapon; skill: Skill; attack?: AttackStyle; color?: string }
 export const DEFAULT_LOADOUT: Loadout = { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash' }

@@ -10,7 +10,7 @@ import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapt
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
-import { buyColor, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, SHOP_COLORS } from './shop/catalog'
+import { buyColor, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, drawGearCapsule, GEAR_CAPSULE_PRICE, gearCapsuleCandidates, gearName, SHOP_COLORS } from './shop/catalog'
 import './style.css'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
@@ -51,10 +51,11 @@ app.innerHTML = `
           <div class="selection"><label>見た目アイテム</label><p class="selection-description">ショップやカプセルで色を増やせます。キャラと分身の色が変わります。</p></div>
         </div><div class="inventory-panel"><p class="eyebrow">使えるもの・まだ使えないもの</p><div id="unlock-list"></div></div>
       </div></section>
-    <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、キャラの色を増やせます。強さは変わりません。</p></div><button class="button secondary back-menu">← メニュー</button></div>
+    <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、色や装備を増やせます。装備は使い方によって強みが変わります。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="shop-summary"><strong id="shop-coins"></strong><span>色は「キャラと装備」から選べます。</span></div>
       <h3 class="shop-heading">好きな色を買う</h3><div id="shop-items" class="shop-grid"></div>
       <h3 class="shop-heading">カプセルを引く</h3><div class="shop-capsule"><div><strong>色のカプセル</strong><p>まだ持っていない色が必ず1つ出ます。残りの色はすべて同じ確率です。</p><p id="capsule-odds"></p></div><button id="capsule-draw" class="button primary"></button></div>
+      <div class="shop-capsule"><div><strong>装備カプセル</strong><p>まだ使えない武器・攻撃・スキルが1つ出ます。攻撃は対応する武器を持つと候補に入ります。重複はなく、ストーリーでも解放できます。</p><p id="gear-capsule-odds"></p></div><button id="gear-capsule-draw" class="button primary"></button></div>
       <p id="shop-status" class="status" role="status"></p></section>
     <section id="profile" class="page hidden"><div class="page-head"><div><h2>プロフィール</h2><p>レベルや戦績のまとめです。ログイン中はクラウドにも保存されます。</p></div><button class="button secondary back-menu">← メニュー</button></div><div id="profile-data" class="profile-grid"></div>
       <p class="profile-future">実績・称号・対戦履歴は準備中です。</p></section>
@@ -241,6 +242,13 @@ function renderShop(): void {
   const draw = byId<HTMLButtonElement>('capsule-draw')
   draw.textContent = `${CAPSULE_PRICE} コインで1回引く`
   draw.disabled = !available.length || progress.coins < CAPSULE_PRICE
+  const gear = gearCapsuleCandidates(progress)
+  byId('gear-capsule-odds').textContent = gear.length
+    ? `いま出る装備：${gear.map(item => gearName(item)).join(' / ')}（各 1/${gear.length}）`
+    : '装備カプセルの中身は全部そろいました。'
+  const gearDraw = byId<HTMLButtonElement>('gear-capsule-draw')
+  gearDraw.textContent = `${GEAR_CAPSULE_PRICE} コインで1回引く`
+  gearDraw.disabled = !gear.length || progress.coins < GEAR_CAPSULE_PRICE
 }
 async function renderProfile(): Promise<void> {
   let stats: RankedStats | undefined
@@ -543,6 +551,12 @@ byId('capsule-draw').addEventListener('click', () => {
   if (result.ok) persist()
   renderShop()
   byId('shop-status').textContent = result.ok ? `${colorName(result.color)}が出ました！ キャラと装備で選べます。` : result.reason
+})
+byId('gear-capsule-draw').addEventListener('click', () => {
+  const result = drawGearCapsule(progress)
+  if (result.ok) persist()
+  renderShop()
+  byId('shop-status').textContent = result.ok ? `${gearName(result.item)}が出ました！ キャラと装備で選べます。` : result.reason
 })
 for (const button of document.querySelectorAll<HTMLButtonElement>('.back-menu')) button.addEventListener('click', () => showScreen('menu'))
 byId('auth-signup-mode').addEventListener('click', () => setAuthMode('signup'))
