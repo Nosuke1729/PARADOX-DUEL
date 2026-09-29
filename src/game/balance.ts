@@ -21,6 +21,8 @@ export const WEAPONS: Record<Weapon, WeaponConfig> = {
   sword: { name: 'SWORD', subtitle: '近距離', description: '発生が速く扱いやすい斬撃。射程は短い。', startup: 7, active: 6, total: 27, damage: 13, reach: 70, height: 44 },
   spear: { name: 'SPEAR', subtitle: '中距離', description: '長いリーチで間合いを支配する突き。発生はSwordより遅い。', startup: 12, active: 5, total: 37, damage: 15, reach: 124, height: 30 },
   blaster: { name: 'BLASTER', subtitle: '遠距離', description: '弾を発射して遠くから攻撃する。威力が低く、接近戦では発生の遅さが弱点。', startup: 15, active: 1, total: 41, damage: 8, reach: 0, height: 0, projectileSpeed: 610 },
+  dagger: { name: 'DAGGER', subtitle: '近距離・速攻', description: '短いリーチの代わりに、すばやく続けて攻撃できる短剣。', startup: 4, active: 5, total: 17, damage: 8, reach: 47, height: 39 },
+  hammer: { name: 'HAMMER', subtitle: '近距離・一撃', description: '振りは遅いけれど、当たると大きく吹き飛ばすハンマー。', startup: 20, active: 7, total: 53, damage: 24, reach: 75, height: 51 },
 }
 export const SKILLS: Record<Skill, SkillConfig> = {
   blink: { name: 'BLINK', subtitle: '8秒', description: '向いている方向へ短距離瞬間移動。回避、接近、Echoとの位置合わせに使う。', cooldown: 480 },
@@ -33,9 +35,15 @@ export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   heavy_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'HEAVY SLASH', subtitle: '強撃', description: '発生と硬直は長いが、威力と吹き飛ばしが強い。', startup: 17, active: 5, total: 48, damage: 22, reach: 82, knockback: 1.45 },
   upper_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'UPPER SLASH', subtitle: '対空', description: '頭上の敵を捉える縦方向の斬撃。', startup: 10, active: 6, total: 34, damage: 12, reach: 53, height: 88, verticalOffset: -27 },
   spear_thrust: { ...WEAPONS.spear, weapon: 'spear', name: 'SPEAR THRUST', subtitle: '標準', description: '長いリーチの突き。距離を保って戦う。' },
+  spear_sweep: { ...WEAPONS.spear, weapon: 'spear', name: 'SPEAR SWEEP', subtitle: '広め', description: '槍を横に払う。突きより短いけれど上下に当てやすい。', startup: 15, active: 8, total: 43, damage: 12, reach: 96, height: 68 },
   blaster_shot: { ...WEAPONS.blaster, weapon: 'blaster', name: 'BLASTER SHOT', subtitle: '標準', description: '遠くまで飛ぶ低威力の弾を放つ。' },
+  charged_shot: { ...WEAPONS.blaster, weapon: 'blaster', name: 'CHARGED SHOT', subtitle: 'ため撃ち', description: '撃つまで時間がかかる代わりに、強い弾を飛ばす。', startup: 27, total: 62, damage: 16, projectileSpeed: 700, knockback: 1.25 },
+  dagger_stab: { ...WEAPONS.dagger, weapon: 'dagger', name: 'QUICK STAB', subtitle: '標準', description: '短い距離をすばやく突く。' },
+  dagger_lunge: { ...WEAPONS.dagger, weapon: 'dagger', name: 'LONG STAB', subtitle: '踏み込み', description: '少し遅いけれど、遠めまで届く短剣の突き。', startup: 12, total: 32, damage: 12, reach: 91 },
+  hammer_smash: { ...WEAPONS.hammer, weapon: 'hammer', name: 'HAMMER SMASH', subtitle: '標準', description: '大きく振り下ろして、相手を吹き飛ばす。', knockback: 1.4 },
+  hammer_upper: { ...WEAPONS.hammer, weapon: 'hammer', name: 'UPPER HAMMER', subtitle: '対空', description: '上に向かって振る。ジャンプした相手にも当てやすい。', startup: 22, active: 7, total: 56, damage: 20, reach: 55, height: 93, verticalOffset: -23, knockback: 1.55 },
 }
-export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot' }
+export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash' }
 export function attackFor(weapon: Weapon, attack?: AttackStyle): AttackConfig {
   return attack && ATTACKS[attack]?.weapon === weapon ? ATTACKS[attack] : ATTACKS[DEFAULT_ATTACK[weapon]]
 }

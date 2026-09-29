@@ -18,6 +18,7 @@ export interface StoryChapter {
   boss?: BossConfig
   rewardXp: number
   rewardCoins: number
+  arena?: { platformX: number; platformY: number; platformWidth: number; accent: number }
 }
 
 export const STORY_CHAPTERS: readonly StoryChapter[] = [
@@ -34,6 +35,16 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
   { id: 5, title: '分身どうしで大騒ぎ', subtitle: '最後の対戦', briefing: '相手も分身を使います。ごちゃごちゃする前に、落ち着いて対処しよう。', enemyName: '分身使い',
     enemy: { character: 'standard', weapon: 'sword', skill: 'echo_swap', attack: 'heavy_slash' }, difficulty: 'hard',
     boss: { id: 'echo_master', hpMultiplier: 1.75, phaseAt: 0.5, special: 'echo_pressure' }, rewardXp: 360, rewardCoins: 220 },
+  { id: 6, title: 'ちょこまか短剣', subtitle: '短剣を使ってみよう', briefing: '短剣使いは近くまで素早く来ます。足場の位置にも気をつけよう。クリアでDAGGERが使えます。', enemyName: '短剣使い',
+    enemy: { character: 'light', weapon: 'dagger', skill: 'blink', attack: 'dagger_stab' }, difficulty: 'normal', rewardXp: 420, rewardCoins: 240,
+    arena: { platformX: 195, platformY: 336, platformWidth: 250, accent: 0x69c9ae } },
+  { id: 7, title: 'どっしりハンマー', subtitle: '振りかぶりを見てよけよう', briefing: '一発が痛いハンマー使い。空振りしたところを狙おう。クリアでHAMMERが使えます。', enemyName: 'ハンマー使い',
+    enemy: { character: 'heavy', weapon: 'hammer', skill: 'shield', attack: 'hammer_smash' }, difficulty: 'hard', rewardXp: 480, rewardCoins: 280,
+    arena: { platformX: 515, platformY: 348, platformWidth: 245, accent: 0xf1bb72 } },
+  { id: 8, title: 'いろいろ総当たり', subtitle: '分身と新しい技のまとめ', briefing: '短剣の踏み込みと分身を使う相手。覚えた動きを試してみよう。', enemyName: '欲張りファイター',
+    enemy: { character: 'standard', weapon: 'dagger', skill: 'echo_swap', attack: 'dagger_lunge' }, difficulty: 'hard',
+    boss: { id: 'mix_master', hpMultiplier: 1.6, phaseAt: 0.45, special: 'echo_pressure' }, rewardXp: 550, rewardCoins: 340,
+    arena: { platformX: 352, platformY: 315, platformWidth: 255, accent: 0xb5a5ec } },
 ]
 
 export function chapterById(id: number): StoryChapter | undefined { return STORY_CHAPTERS.find(chapter => chapter.id === id) }

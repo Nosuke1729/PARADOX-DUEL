@@ -10,6 +10,7 @@ export interface PlayerProgress {
   playerLevel: number; currentXp: number; totalXp: number; coins: number
   unlockedCharacters: Character[]; unlockedWeapons: Weapon[]; unlockedSkills: Skill[]; unlockedAttacks: AttackStyle[]
   unlockedColors: string[]; selectedLoadout: Loadout
+  ownedCosmetics: string[]
   storyProgress: { clearedChapters: number[]; defeatedBosses: string[] }
   characterMastery: Record<Character, MasteryProgress>
   onlineWins: number; onlineLosses: number
@@ -23,7 +24,7 @@ export function newProgress(): PlayerProgress {
     version: 1, playerLevel: 1, currentXp: 0, totalXp: 0, coins: 0,
     unlockedCharacters: [...STARTER_UNLOCKS.character], unlockedWeapons: [...STARTER_UNLOCKS.weapon],
     unlockedSkills: [...STARTER_UNLOCKS.skill], unlockedAttacks: [...STARTER_UNLOCKS.attack],
-    unlockedColors: [...STARTER_UNLOCKS.color], selectedLoadout: { ...DEFAULT_LOADOUT },
+    unlockedColors: [...STARTER_UNLOCKS.color], ownedCosmetics: [], selectedLoadout: { ...DEFAULT_LOADOUT },
     storyProgress: { clearedChapters: [], defeatedBosses: [] },
     characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart() },
     onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0 },
@@ -44,10 +45,11 @@ export function hydrateProgress(raw: unknown): PlayerProgress {
   progress.coins = nonnegative(source.coins)
   progress.onlineWins = nonnegative(source.onlineWins)
   progress.onlineLosses = nonnegative(source.onlineLosses)
+  progress.ownedCosmetics = [...new Set(names(source.ownedCosmetics).filter(id => id in COLORS && id !== 'default' && id !== 'arc_cyan'))]
   const story = record(source.storyProgress)
   progress.storyProgress.clearedChapters = [...new Set((Array.isArray(story.clearedChapters) ? story.clearedChapters : [])
     .filter((id): id is number => Number.isInteger(id) && Boolean(chapterById(id as number))))].sort((a, b) => a - b)
-  progress.storyProgress.defeatedBosses = [...new Set(names(story.defeatedBosses).filter(id => ['light', 'heavy', 'echo_master'].includes(id)))]
+  progress.storyProgress.defeatedBosses = [...new Set(names(story.defeatedBosses).filter(id => ['light', 'heavy', 'echo_master', 'mix_master'].includes(id)))]
   const mastery = record(source.characterMastery)
   const uses = record(source.characterUses)
   for (const character of Object.keys(CHARACTERS) as Character[]) {
@@ -81,6 +83,7 @@ function conditionMet(progress: PlayerProgress, condition: UnlockCondition): boo
 }
 export function canUse(progress: PlayerProgress, kind: UnlockKind, id: string): boolean {
   if ((STARTER_UNLOCKS[kind] as string[]).includes(id)) return true
+  if (kind === 'color' && id in COLORS && progress.ownedCosmetics.includes(id)) return true
   const rule = unlockRule(kind, id)
   return Boolean(rule && rule.anyOf.some(condition => conditionMet(progress, condition)))
 }

@@ -78,8 +78,8 @@ test('later unlocks use level, boss and mastery conditions without changing onli
     [{ character: 'standard', weapon: 'sword', skill: 'blink' }, { character: 'light', weapon: 'sword', skill: 'blink' }]), undefined)
 })
 
-test('five story chapters are configured and AI range adapts to weapon', () => {
-  assert.equal(STORY_CHAPTERS.length, 5)
+test('eight story stages are configured and AI range adapts to weapon', () => {
+  assert.equal(STORY_CHAPTERS.length, 8)
   const ai = new StoryAI('normal', undefined, () => 0.99)
   const fighter = (weapon: 'sword' | 'blaster') => ({
     x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true,

@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { attackFor, CHARACTERS } from './balance'
 import { EchoRecorder } from './EchoRecorder'
 import { WORLD, type Controls, type FighterState, type Frame, type Loadout, type Slot } from './types'
+import { COLORS } from '../progression/catalog'
 
 const WIDTH = 34
 const HEIGHT = 56
@@ -30,7 +31,8 @@ export class Fighter {
     this.loadout = loadout
     this.maxHp = Math.round(CHARACTERS[loadout.character].hp * hpMultiplier)
     this.hp = this.maxHp
-    this.color = slot === 1 ? loadout.color === 'arc_cyan' ? 0x9cfaff : 0x58e5e1 : 0xff6b6f
+    this.color = loadout.color && loadout.color !== 'default' && COLORS[loadout.color]
+      ? COLORS[loadout.color].hex : slot === 1 ? 0x58e5e1 : 0xff6b6f
     this.facing = slot === 1 ? 1 : -1
     const x = slot === 1 ? 210 : 750
     this.sprite = scene.physics.add.sprite(x, WORLD.floorY - HEIGHT / 2, `fighter-${loadout.character}`)

@@ -13,11 +13,11 @@ export class Echo {
   private current: Frame
   private offsetX = 0
   private offsetY = 0
-  constructor(scene: Phaser.Scene, packet: EchoPacket, weapon: Weapon, character: Character, attack?: AttackStyle) {
+  constructor(scene: Phaser.Scene, packet: EchoPacket, weapon: Weapon, character: Character, attack?: AttackStyle, private readonly color = packet.owner === 1 ? 0x58e5e1 : 0xff6b6f) {
     this.packet = packet; this.owner = packet.owner; this.weapon = weapon; this.attack = attack
     this.current = packet.frames[0]
     this.sprite = scene.add.sprite(this.current.x, this.current.y, `fighter-${character}`)
-      .setTint(packet.owner === 1 ? 0x58e5e1 : 0xff6b6f).setAlpha(0.38).setDepth(4)
+      .setTint(this.color).setAlpha(0.38).setDepth(4)
     this.outline = scene.add.graphics().setDepth(5)
     this.drawOutline()
   }
@@ -44,7 +44,7 @@ export class Echo {
     this.drawOutline()
   }
   private drawOutline(): void {
-    const color = this.owner === 1 ? 0x58e5e1 : 0xff6b6f
+    const color = this.color
     this.outline.clear().lineStyle(2, color, 0.85).strokeRoundedRect(this.x - 22, this.y - 32, 44, 64, 5)
     this.outline.fillStyle(color, 0.65).fillTriangle(this.x - 5, this.y - 43, this.x + 5, this.y - 43, this.x, this.y - 35)
   }

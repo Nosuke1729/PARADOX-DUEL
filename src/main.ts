@@ -10,6 +10,7 @@ import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapt
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
+import { buyColor, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, SHOP_COLORS } from './shop/catalog'
 import './style.css'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
@@ -32,7 +33,7 @@ app.innerHTML = `
         <button id="menu-profile" class="button secondary">プロフィール <span>→</span></button>
         <button id="menu-account" class="button secondary">アカウント <span>→</span></button>
         <button id="menu-ranking" class="button secondary">ランキング <span>→</span></button>
-        <div class="coming-row"><span>ショップは準備中です</span></div>
+        <button id="menu-shop" class="button secondary">ショップ・カプセル <span>→</span></button>
         <p id="menu-status" class="status" role="status"></p>
       </nav>
     </main>
@@ -47,9 +48,14 @@ app.innerHTML = `
           <div class="selection"><label for="attack">攻撃</label><select id="attack"></select><p id="attack-description" class="selection-description"></p></div>
           <div class="selection"><label for="skill">スキル（Iキー）</label><select id="skill"></select><p id="skill-description" class="selection-description"></p></div>
           <div class="selection"><label for="color">色</label><select id="color"></select><p id="color-description" class="selection-description"></p></div>
-          <div class="selection"><label>見た目アイテム</label><p class="selection-description">分身の色・スキン・称号は今後追加予定です。</p></div>
+          <div class="selection"><label>見た目アイテム</label><p class="selection-description">ショップやカプセルで色を増やせます。キャラと分身の色が変わります。</p></div>
         </div><div class="inventory-panel"><p class="eyebrow">使えるもの・まだ使えないもの</p><div id="unlock-list"></div></div>
       </div></section>
+    <section id="shop" class="page hidden"><div class="page-head"><div><h2>ショップ</h2><p>ストーリーなどで集めたコインで、キャラの色を増やせます。強さは変わりません。</p></div><button class="button secondary back-menu">← メニュー</button></div>
+      <div class="shop-summary"><strong id="shop-coins"></strong><span>色は「キャラと装備」から選べます。</span></div>
+      <h3 class="shop-heading">好きな色を買う</h3><div id="shop-items" class="shop-grid"></div>
+      <h3 class="shop-heading">カプセルを引く</h3><div class="shop-capsule"><div><strong>色のカプセル</strong><p>まだ持っていない色が必ず1つ出ます。残りの色はすべて同じ確率です。</p><p id="capsule-odds"></p></div><button id="capsule-draw" class="button primary"></button></div>
+      <p id="shop-status" class="status" role="status"></p></section>
     <section id="profile" class="page hidden"><div class="page-head"><div><h2>プロフィール</h2><p>レベルや戦績のまとめです。ログイン中はクラウドにも保存されます。</p></div><button class="button secondary back-menu">← メニュー</button></div><div id="profile-data" class="profile-grid"></div>
       <p class="profile-future">実績・称号・対戦履歴は準備中です。</p></section>
     <section id="account" class="page hidden"><div class="page-head"><div><h2>アカウント</h2><p>ログインすると、別の端末でも同じ続きから遊べます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
@@ -82,7 +88,7 @@ app.innerHTML = `
   </div>`
 
 const byId = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
-const screens = ['menu', 'story', 'fighter', 'profile', 'account', 'ranking', 'online', 'ranked-search', 'lobby', 'arena'] as const
+const screens = ['menu', 'story', 'fighter', 'shop', 'profile', 'account', 'ranking', 'online', 'ranked-search', 'lobby', 'arena'] as const
 type Screen = typeof screens[number]
 const menuStatus = byId<HTMLElement>('menu-status')
 const onlineStatus = byId<HTMLElement>('online-status')
@@ -103,7 +109,7 @@ let currentScreen: Screen = 'menu'
 let authMode: 'signup' | 'login' = 'login'
 const ranked = new RankedService()
 const cloud = new CloudProgress(
-  loaded => { progress = loaded; if (currentScreen === 'menu') renderMenu(); if (currentScreen === 'fighter') renderFighter(); if (currentScreen === 'profile') void renderProfile() },
+  loaded => { progress = loaded; if (currentScreen === 'menu') renderMenu(); if (currentScreen === 'fighter') renderFighter(); if (currentScreen === 'shop') renderShop(); if (currentScreen === 'profile') void renderProfile() },
   message => { menuStatus.textContent = message; byId('account-status').textContent = message },
   () => { if (currentScreen === 'account') void renderAccount(); if (currentScreen === 'profile') void renderProfile() },
 )
@@ -111,9 +117,12 @@ const cloud = new CloudProgress(
 function showScreen(screen: Screen): void {
   currentScreen = screen
   for (const id of screens) byId(id).classList.toggle('hidden', id !== screen)
+  byId(screen).scrollTop = 0
+  window.scrollTo(0, 0)
   if (screen === 'menu') renderMenu()
   if (screen === 'story') renderStory()
   if (screen === 'fighter') renderFighter()
+  if (screen === 'shop') renderShop()
   if (screen === 'profile') void renderProfile()
   if (screen === 'account') void renderAccount()
   if (screen === 'ranking') void renderRanking()
@@ -205,6 +214,33 @@ function renderStory(): void {
     })
     card.append(eyebrow, title, briefing, enemy, button); list.append(card)
   }
+}
+function renderShop(): void {
+  byId('shop-coins').textContent = `${progress.coins} コイン`
+  const items = byId('shop-items'); items.replaceChildren()
+  for (const item of SHOP_COLORS) {
+    const card = document.createElement('article'); card.className = 'shop-card'
+    const swatch = document.createElement('span'); swatch.className = 'shop-swatch'; swatch.style.backgroundColor = `#${COLORS[item.id].hex.toString(16).padStart(6, '0')}`
+    const name = document.createElement('strong'); name.textContent = colorName(item.id)
+    const description = document.createElement('p'); description.textContent = COLORS[item.id].description
+    const button = document.createElement('button'); button.className = 'button secondary'
+    button.textContent = progress.unlockedColors.includes(item.id) ? '持っています' : `${item.price} コインで買う`
+    button.disabled = progress.unlockedColors.includes(item.id) || progress.coins < item.price
+    button.addEventListener('click', () => {
+      const result = buyColor(progress, item.id)
+      if (result.ok) persist()
+      renderShop()
+      byId('shop-status').textContent = result.ok ? `${colorName(result.color)}を買いました。キャラと装備で選べます。` : result.reason
+    })
+    card.append(swatch, name, description, button); items.append(card)
+  }
+  const available = CAPSULE_COLORS.filter(id => !progress.unlockedColors.includes(id))
+  byId('capsule-odds').textContent = available.length
+    ? `いま出る色：${available.map(id => colorName(id)).join(' / ')}（各 ${Math.round(100 / available.length)}%）`
+    : 'カプセルの色は全部そろいました。'
+  const draw = byId<HTMLButtonElement>('capsule-draw')
+  draw.textContent = `${CAPSULE_PRICE} コインで1回引く`
+  draw.disabled = !available.length || progress.coins < CAPSULE_PRICE
 }
 async function renderProfile(): Promise<void> {
   let stats: RankedStats | undefined
@@ -497,10 +533,17 @@ async function leave(): Promise<void> {
 byId('menu-story').addEventListener('click', () => showScreen('story'))
 byId('menu-online').addEventListener('click', () => showScreen('online'))
 byId('menu-fighter').addEventListener('click', () => showScreen('fighter'))
+byId('menu-shop').addEventListener('click', () => showScreen('shop'))
 byId('menu-profile').addEventListener('click', () => showScreen('profile'))
 byId('menu-account').addEventListener('click', () => showScreen('account'))
 byId('menu-ranking').addEventListener('click', () => showScreen('ranking'))
 byId('practice').addEventListener('click', () => startBattle('practice', [currentLoadout(), BOT_LOADOUT]))
+byId('capsule-draw').addEventListener('click', () => {
+  const result = drawCapsule(progress)
+  if (result.ok) persist()
+  renderShop()
+  byId('shop-status').textContent = result.ok ? `${colorName(result.color)}が出ました！ キャラと装備で選べます。` : result.reason
+})
 for (const button of document.querySelectorAll<HTMLButtonElement>('.back-menu')) button.addEventListener('click', () => showScreen('menu'))
 byId('auth-signup-mode').addEventListener('click', () => setAuthMode('signup'))
 byId('auth-login-mode').addEventListener('click', () => setAuthMode('login'))

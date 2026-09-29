@@ -5,7 +5,7 @@ import { HitLedger, attackRect, hurtRect, projectileRect } from './CombatMath'
 import { attackFor, CHARACTERS, SKILLS, WEAPONS, damageFor, winnerByHealth } from './balance'
 import { InputManager } from './InputManager'
 import { soundFX } from './SoundFX'
-import { EMPTY_CONTROLS, RULES, WORLD, type AttackStyle, type Controls, type EchoPacket, type FighterState, type Loadout, type MatchEvent, type Phase, type ProjectileState, type Slot, type Snapshot } from './types'
+import { EMPTY_CONTROLS, RULES, WORLD, type AttackStyle, type Controls, type EchoPacket, type FighterState, type Loadout, type MatchEvent, type Phase, type ProjectileState, type Slot, type Snapshot, type Weapon } from './types'
 import type { InputPacket, RoomManager } from '../network/RoomManager'
 import { StoryAI } from '../story/StoryAI'
 import type { StoryChapter } from '../story/chapters'
@@ -30,6 +30,7 @@ export class BattleScene extends Phaser.Scene {
   private projectiles: ProjectileState[] = []
   private effects: { x: number; y: number; radius: number; frames: number; color: number }[] = []
   private platform!: Phaser.GameObjects.Rectangle
+  private platformTop: number = WORLD.platformY
   private hud!: Phaser.GameObjects.Graphics
   private attacks!: Phaser.GameObjects.Graphics
   private topText!: Phaser.GameObjects.Text
@@ -80,7 +81,7 @@ export class BattleScene extends Phaser.Scene {
       this.physics.add.collider(fighter.sprite, this.platform, undefined, () => {
         const body = fighter.body
         return fighter.dropFrames === 0 && body.velocity.y >= 0 &&
-          body.prev.y + body.height <= WORLD.platformY + 8
+          body.prev.y + body.height <= this.platformTop + 8
       })
     }
     this.physics.add.collider(this.fighters[0].sprite, this.fighters[1].sprite)
@@ -122,16 +123,25 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private drawStage(): void {
+    const arena = this.options.story?.arena
+    const platformX = arena?.platformX ?? WORLD.platformX
+    const platformWidth = arena?.platformWidth ?? WORLD.platformWidth
+    this.platformTop = arena?.platformY ?? WORLD.platformY
+    const accent = arena?.accent ?? 0x5e8da6
     const g = this.add.graphics()
     g.lineStyle(1, 0x20334b, 0.35)
     for (let x = 0; x <= WORLD.width; x += 48) g.lineBetween(x, 0, x, WORLD.floorY)
     for (let y = 0; y <= WORLD.floorY; y += 48) g.lineBetween(0, y, WORLD.width, y)
     g.fillStyle(0x101b2a).fillRect(0, WORLD.floorY, WORLD.width, WORLD.height - WORLD.floorY)
     g.lineStyle(3, 0x4b6984).lineBetween(0, WORLD.floorY, WORLD.width, WORLD.floorY)
-    g.fillStyle(0x213549).fillRoundedRect(WORLD.platformX, WORLD.platformY, WORLD.platformWidth, 13, 3)
-    g.lineStyle(2, 0x5e8da6).lineBetween(WORLD.platformX, WORLD.platformY, WORLD.platformX + WORLD.platformWidth, WORLD.platformY)
+    g.fillStyle(0x213549).fillRoundedRect(platformX, this.platformTop, platformWidth, 13, 3)
+    g.lineStyle(2, accent).lineBetween(platformX, this.platformTop, platformX + platformWidth, this.platformTop)
+    if (arena) {
+      g.lineStyle(2, accent, 0.55).strokeRoundedRect(40, 100, WORLD.width - 80, WORLD.floorY - 140, 18)
+      g.fillStyle(accent, 0.12).fillCircle(480, 145, 105)
+    }
     g.lineStyle(1, 0x335572, 0.65).lineBetween(480, 76, 480, WORLD.floorY)
-    this.platform = this.add.rectangle(WORLD.platformX + WORLD.platformWidth / 2, WORLD.platformY + 6.5, WORLD.platformWidth, 13, 0x213549, 0)
+    this.platform = this.add.rectangle(platformX + platformWidth / 2, this.platformTop + 6.5, platformWidth, 13, 0x213549, 0)
     this.physics.add.existing(this.platform, true)
   }
 
@@ -216,14 +226,14 @@ export class BattleScene extends Phaser.Scene {
       this.remotePressed = { ...EMPTY_CONTROLS }
       for (const fighter of this.fighters) {
         if (fighter.dropFrames === 0 && fighter.grounded && local.held.down && fighter.slot === 1 &&
-          Math.abs(fighter.y + 28 - WORLD.platformY) < 12) {
+          Math.abs(fighter.y + 28 - this.platformTop) < 12) {
           fighter.dropFrames = 16
           fighter.sprite.y += 8
           fighter.body.updateFromGameObject()
           fighter.body.setVelocityY(110)
         }
         if (fighter.slot === 2 && other.held.down && fighter.grounded && fighter.dropFrames === 0 &&
-          Math.abs(fighter.y + 28 - WORLD.platformY) < 12) {
+          Math.abs(fighter.y + 28 - this.platformTop) < 12) {
           fighter.dropFrames = 16
           fighter.sprite.y += 8
           fighter.body.updateFromGameObject()
@@ -251,13 +261,13 @@ export class BattleScene extends Phaser.Scene {
     const player = this.fighters[0]
     const distance = player.x - bot.x
     const toward = Math.sign(distance) || 1
-    const preferred = bot.loadout.weapon === 'spear' ? 120 : bot.loadout.weapon === 'blaster' ? 260 : 77
+    const preferred = bot.loadout.weapon === 'spear' ? 120 : bot.loadout.weapon === 'blaster' ? 260 : bot.loadout.weapon === 'dagger' ? 55 : 77
     const move = Math.abs(distance) > preferred ? toward : Math.abs(distance) < preferred - 35 ? -toward : 0
     const held: Controls = {
       ...EMPTY_CONTROLS,
       left: move < 0,
       right: move > 0,
-      attack: Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 500 : bot.loadout.weapon === 'spear' ? 155 : 98) && Math.abs(player.y - bot.y) < 62 && this.tick % 95 < 2,
+      attack: Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 500 : bot.loadout.weapon === 'spear' ? 155 : bot.loadout.weapon === 'dagger' ? 72 : 105) && Math.abs(player.y - bot.y) < 62 && this.tick % 95 < 2,
       jump: this.tick % 190 < 2 && player.y < bot.y - 60,
       dash: Math.abs(distance) > 280 && this.tick % 210 < 2,
       echo: bot.recorder.ready() && bot.echoCooldown === 0 && this.tick % 780 < 2,
@@ -278,7 +288,7 @@ export class BattleScene extends Phaser.Scene {
       echoId: this.tick, startTick: this.tick, frames: fighter.recorder.capture(),
     }
     fighter.echoCooldown = RULES.echoCooldown
-    this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack))
+    this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack, fighter.color))
     soundFX.play('echo')
     this.options.room?.sendEvent({ kind: 'echo', echo: packet })
   }
@@ -508,7 +518,7 @@ export class BattleScene extends Phaser.Scene {
       if (packet.matchId !== this.matchId || packet.round !== this.round ||
         packet.frames.length !== RULES.echoFrames || this.echoes.some(echo => echo.packet.echoId === packet.echoId)) return
       const owner = this.fighters[packet.owner - 1]
-      const echo = new Echo(this, packet, owner.loadout.weapon, owner.loadout.character, owner.loadout.attack)
+      const echo = new Echo(this, packet, owner.loadout.weapon, owner.loadout.character, owner.loadout.attack, owner.color)
       echo.seek(Math.max(0, this.tick - packet.startTick))
       this.echoes.push(echo)
       soundFX.play('echo')
@@ -640,9 +650,9 @@ export class BattleScene extends Phaser.Scene {
         this.drawAttack(fighter.x, fighter.y, fighter.facing, fighter.loadout.weapon, fighter.color, 0.07, fighter.loadout.attack)
     }
     for (const echo of this.echoes) if (echo.isAttacking && echo.weapon !== 'blaster') this.drawAttack(echo.x, echo.y, echo.facing, echo.weapon,
-      echo.owner === 1 ? 0x58e5e1 : 0xff6b6f, 0.22, echo.attack)
+      this.fighters[echo.owner - 1].color, 0.22, echo.attack)
     for (const projectile of this.projectiles) {
-      const color = projectile.owner === 1 ? 0x58e5e1 : 0xff6b6f
+      const color = this.fighters[projectile.owner - 1].color
       this.attacks.fillStyle(color, 0.18).fillCircle(projectile.x, projectile.y, 14)
       this.attacks.fillStyle(color, 0.95).fillCircle(projectile.x, projectile.y, 7)
     }
@@ -656,7 +666,7 @@ export class BattleScene extends Phaser.Scene {
       y, 260 * hp / maxHp, 21, 4)
   }
 
-  private drawAttack(x: number, y: number, facing: -1 | 1, weapon: 'sword' | 'spear', color: number, alpha: number, attack?: AttackStyle): void {
+  private drawAttack(x: number, y: number, facing: -1 | 1, weapon: Weapon, color: number, alpha: number, attack?: AttackStyle): void {
     const rect = attackRect(x, y, facing, weapon, attack)
     this.attacks.fillStyle(color, alpha).fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 8)
     this.attacks.lineStyle(2, color, alpha + 0.35).strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 8)
