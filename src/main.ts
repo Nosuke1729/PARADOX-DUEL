@@ -74,6 +74,7 @@ let game: Phaser.Game | undefined
 let battle: BattleScene | undefined
 let starting = false
 let activeStory: StoryChapter | undefined
+let roomAttempt = 0
 
 function showScreen(screen: Screen): void {
   for (const id of screens) byId(id).classList.toggle('hidden', id !== screen)
@@ -239,28 +240,38 @@ function startBattle(mode: 'practice' | 'online' | 'story', loadouts: [Loadout, 
 async function enterRoom(action: 'create' | 'join'): Promise<void> {
   soundFX.unlock()
   if (!RoomManager.configured()) { onlineStatus.textContent = 'オンライン設定がありません。README の手順で Supabase を設定してください。'; return }
+  const attempt = ++roomAttempt
   onlineStatus.textContent = '接続中…'
+  let joined: RoomManager | undefined
   try {
     const loadout = currentLoadout()
-    room = action === 'create' ? await RoomManager.create(loadout) : await RoomManager.join(byId<HTMLInputElement>('room-code').value, loadout)
+    joined = action === 'create' ? await RoomManager.create(loadout) : await RoomManager.join(byId<HTMLInputElement>('room-code').value, loadout)
+    if (attempt !== roomAttempt) { await joined.close(); return }
+    room = joined
     byId('lobby-title').textContent = action === 'create' ? 'ROOM CREATED' : 'ROOM JOINED'
-    byId('lobby-code').textContent = room.code
+    byId('lobby-code').textContent = joined.code
     lobbyStatus.textContent = '相手を待っています…'
     showScreen('lobby')
-    room.onPresence = roster => {
+    joined.onPresence = roster => {
+      if (attempt !== roomAttempt || room !== joined) return
       if (roster[1] && roster[2]) startBattle('online', [roster[1], roster[2]])
       else lobbyStatus.textContent = '相手を待っています…'
     }
-    room.onConnection = connected => { if (!connected) lobbyStatus.textContent = '接続が切れました。再接続しています…' }
-    await room.connect()
+    joined.onConnection = connected => {
+      if (attempt === roomAttempt && room === joined && !connected) lobbyStatus.textContent = '接続が切れました。再接続しています…'
+    }
+    await joined.connect()
+    if (attempt !== roomAttempt) return
     onlineStatus.textContent = ''
   } catch (error) {
+    if (attempt !== roomAttempt) return
     onlineStatus.textContent = error instanceof Error ? error.message : '接続に失敗しました'
-    if (room) { await room.close(); room = undefined }
+    if (joined) { await joined.close(); room = undefined }
     showScreen('online')
   }
 }
 async function leave(): Promise<void> {
+  roomAttempt++
   const returnStory = Boolean(activeStory)
   starting = false
   if (game) { game.destroy(true); game = undefined; battle = undefined }
