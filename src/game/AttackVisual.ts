@@ -17,7 +17,7 @@ export function weaponPose(weapon: Weapon, attack: AttackStyle | undefined, fram
     Math.max(1, timing.total - timing.startup - timing.active)))
   const upper = attack === 'upper_slash' || attack === 'hammer_upper' || attack === 'yoyo_high'
   const sweep = attack === 'spear_sweep'
-  const wide = attack === 'heavy_slash' || weapon === 'hammer'
+  const wide = attack === 'heavy_slash' || weapon === 'hammer' || weapon === 'scythe'
   const windup = upper ? 0.65 : wide ? -1.05 : weapon === 'whip' ? -0.95 : sweep ? -0.6 : weapon === 'fan' ? -0.8 : -0.5
   const follow = upper ? -1.0 : wide ? 0.85 : weapon === 'whip' ? 0.78 : sweep ? 0.55 : weapon === 'fan' ? 0.7 : 0.45
   if (weapon === 'blaster') {

@@ -7,11 +7,12 @@ import { drawFighterPreview } from './game/FighterArt'
 import { RoomManager } from './network/RoomManager'
 import { CloudProgress } from './progression/cloud'
 import { COLORS, HATS, type UnlockKind } from './progression/catalog'
-import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, selectTitle, storyReward, xpForNextLevel, type ProgressEvent } from './progression/progress'
+import { awardMatchResult, awardStoryVictory, beginBonusAttempt, canUse, favoriteCharacter, finishBonusAttempt, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, selectTitle, storyReward, xpForNextLevel, type ProgressEvent } from './progression/progress'
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
 import { challengeFor, ECHO_CHALLENGES, titleFor } from './story/challenges'
+import { BONUS_CHAPTER, BONUS_CONFIG, BONUS_REWARDS } from './story/bonus'
 import { buyColor, buyHat, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, drawGearCapsule, DUPLICATE_REFUND_PERCENT, GEAR_CAPSULE_PRICE, gearCapsulePool, gearName, SHOP_COLORS } from './shop/catalog'
 import './style.css'
 
@@ -41,6 +42,7 @@ app.innerHTML = `
     </main>
     <section id="story" class="page hidden"><div class="page-head"><div><h2>ストーリー</h2><p>AIと戦って、キャラや武器を少しずつ増やそう。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="story-toolbar"><label for="difficulty">むずかしさ</label><select id="difficulty"><option value="recommended" selected>おまかせ</option><option value="easy">やさしい</option><option value="normal">ふつう</option><option value="hard">むずかしい</option></select><span>各ステージのおすすめ設定で始めます。ここで変更できます。</span></div>
+      <p class="bonus-rule">ステージ${BONUS_CONFIG.minChapter}以降をクリアすると、${Math.round(BONUS_CONFIG.spawnChance * 100)}%の確率で強敵が出現。出なくても${BONUS_CONFIG.pityAfter}回目までには必ず現れます。挑戦は${BONUS_CONFIG.attempts}回です。</p>
       <div id="chapter-list" class="chapter-grid"></div></section>
     <section id="fighter" class="page hidden"><div class="page-head"><div><h2>キャラと装備</h2><p>変えたい項目を選ぶと、使えるものと解放条件を見られます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="fighter-layout"><div class="fighter-showcase"><p class="eyebrow">いまのファイター</p><div class="fighter-preview-card"><canvas id="fighter-preview" width="400" height="190" role="img" aria-label="選択中のキャラと装備の見た目"></canvas><p id="fighter-preview-label"></p></div><p class="fighter-help">カードをタップして変更。まだ使えないものも、開いたパネルで解放条件を確認できます。</p></div>
@@ -232,6 +234,17 @@ fighterPicker.addEventListener('click', event => { if (event.target === fighterP
 function renderStory(): void {
   const list = byId('chapter-list')
   list.replaceChildren()
+  if (progress.bonus.attempts > 0) {
+    const card = document.createElement('article'); card.className = 'chapter-card bonus-card'
+    const label = document.createElement('p'); label.className = 'eyebrow'; label.textContent = 'ボーナス戦 ・ 出現中'
+    const title = document.createElement('h3'); title.textContent = BONUS_CHAPTER.title
+    const briefing = document.createElement('p'); briefing.textContent = BONUS_CHAPTER.briefing
+    const rewards = document.createElement('p'); rewards.className = 'chapter-meta'
+    rewards.textContent = `残り ${progress.bonus.attempts} 回 ／ 未獲得の報酬から1つ：${BONUS_REWARDS.filter(item => !progress.bonus.rewards.includes(item.id)).map(item => item.name).join('・')}`
+    const button = document.createElement('button'); button.className = 'button primary'; button.textContent = '強敵に挑戦 →'
+    button.addEventListener('click', () => startBattle('story', [currentLoadout(), BONUS_CHAPTER.enemy], BONUS_CHAPTER))
+    card.append(label, title, briefing, rewards, button); list.append(card)
+  }
   for (const chapter of STORY_CHAPTERS) {
     const card = document.createElement('article'); card.className = 'chapter-card'
     const eyebrow = document.createElement('p'); eyebrow.className = 'eyebrow'; eyebrow.textContent = `ステージ ${chapter.id}${chapter.boss ? ' ・ ボス戦' : ''}`
@@ -328,6 +341,7 @@ async function renderProfile(): Promise<void> {
     ['累計XP', String(progress.totalXp)], ['コイン', String(progress.coins)],
     ['オンライン勝利', String(progress.onlineWins)], ['オンライン敗北', String(progress.onlineLosses)],
     ['ストーリー進行', `${progress.storyProgress.clearedChapters.length} / ${STORY_CHAPTERS.length} ステージ`],
+    ['強敵の報酬', `${progress.bonus.rewards.length} / ${BONUS_REWARDS.length} 種類`],
     ['よく使うキャラ', CHARACTERS[favoriteCharacter(progress)].name],
     ...(Object.keys(CHARACTERS) as Character[]).map(character =>
       [`${CHARACTERS[character].name} の熟練度`, `レベル ${progress.characterMastery[character].level}`] as [string, string]),
@@ -512,6 +526,10 @@ function startRankedSearch(): void {
 }
 function startBattle(mode: 'practice' | 'online' | 'story' | 'ranked', loadouts: [Loadout, Loadout], story?: StoryChapter): void {
   if (starting) return
+  if (story?.bonus) {
+    if (!beginBonusAttempt(progress)) return
+    persist()
+  }
   soundFX.unlock()
   starting = true
   activeStory = story
@@ -523,17 +541,22 @@ function startBattle(mode: 'practice' | 'online' | 'story' | 'ranked', loadouts:
     mode: mode === 'ranked' ? 'online' : mode, room, story, loadouts, playerNames: mode === 'ranked' ? rankedNames : undefined,
     onMatchEnd(message, result, challengeComplete) {
       const events = mode === 'story' && story && result === 'win'
-        ? awardStoryVictory(progress, story.id, mine.character, challengeComplete)
+        ? story.bonus ? finishBonusAttempt(progress, true, mine.character)
+          : awardStoryVictory(progress, story.id, mine.character, challengeComplete)
+        : story?.bonus ? finishBonusAttempt(progress, false, mine.character)
         : mode !== 'story' ? awardMatchResult(progress, mode === 'ranked' ? 'online' : mode, result, mine.character) : []
       persist()
-      byId('dialog-title').textContent = mode === 'ranked' ? '結果を確認中' : mode === 'story' && result === 'win' ? 'ステージクリア！' : message
+      byId('dialog-title').textContent = mode === 'ranked' ? '結果を確認中' : story?.bonus && result === 'win'
+        ? '強敵に勝利！' : mode === 'story' && result === 'win' ? 'ステージクリア！' : message
       byId('dialog-copy').textContent = mode === 'ranked' ? '両プレイヤーの結果確認を待っています…' : mode === 'story'
-        ? result === 'win' ? `ステージ ${story?.id}「${story?.title}」クリア` : 'もう一度やってみよう。'
+        ? story?.bonus ? result === 'win' ? '特別な報酬を獲得しました。「キャラと装備」で確認できます。'
+          : `残り ${progress.bonus.attempts} 回挑戦できます。` :
+          result === 'win' ? `ステージ ${story?.id}「${story?.title}」クリア` : 'もう一度やってみよう。'
         : room ? 'もう一戦するには、両方でボタンを押してください。' : 'もう一度対戦できます。'
       renderEvents(events)
       byId<HTMLButtonElement>('rematch').textContent = mode === 'story' ? 'もう一度挑戦' : 'もう一戦'
-      byId<HTMLButtonElement>('rematch').classList.toggle('hidden', mode === 'ranked')
-      byId<HTMLButtonElement>('rematch').disabled = mode === 'ranked'
+      byId<HTMLButtonElement>('rematch').classList.toggle('hidden', mode === 'ranked' || Boolean(story?.bonus))
+      byId<HTMLButtonElement>('rematch').disabled = mode === 'ranked' || Boolean(story?.bonus)
       byId<HTMLButtonElement>('leave').textContent = mode === 'story' ? 'ステージ選択へ' : 'メニューに戻る'
       dialog.classList.remove('hidden')
       if (mode === 'ranked' && activeRanked && cloud.identity) {
@@ -601,6 +624,10 @@ async function enterRoom(action: 'create' | 'join'): Promise<void> {
 async function leave(): Promise<void> {
   roomAttempt++
   const returnStory = Boolean(activeStory)
+  if (activeStory?.bonus && progress.bonus.active) {
+    finishBonusAttempt(progress, false, progress.selectedLoadout.character)
+    persist()
+  }
   clearDisconnectChecks()
   if (activeRanked?.status === 'active' && !rankedResultReported) {
     try { await ranked.forfeit(activeRanked.id) }

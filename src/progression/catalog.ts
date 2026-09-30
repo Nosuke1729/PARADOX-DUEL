@@ -9,6 +9,7 @@ export type UnlockCondition =
   | { type: 'boss'; id: string }
   | { type: 'mastery'; character: Character; level: number }
   | { type: 'weapon'; weapon: Weapon }
+  | { type: 'bonus'; reward: string }
 
 export interface UnlockRule {
   kind: UnlockKind
@@ -66,6 +67,10 @@ export const UNLOCK_RULES: readonly UnlockRule[] = [
   { kind: 'attack', id: 'whip_snap', name: ATTACKS.whip_snap.name, anyOf: [{ type: 'weapon', weapon: 'whip' }], hint: 'WHIPを使えるようになる' },
   { kind: 'attack', id: 'whip_sweep', name: ATTACKS.whip_sweep.name, anyOf: [{ type: 'chapter', chapter: 14 }], hint: 'ステージ14をクリア' },
   { kind: 'character', id: 'hopper', name: CHARACTERS.hopper.name, anyOf: [{ type: 'boss', id: 'hopper' }], hint: 'ステージ15のHOPPERに勝つ' },
+  { kind: 'character', id: 'shade', name: CHARACTERS.shade.name, anyOf: [{ type: 'bonus', reward: 'shade' }], hint: 'ボーナス戦のSHADEに勝つ' },
+  { kind: 'weapon', id: 'scythe', name: WEAPONS.scythe.name, anyOf: [{ type: 'bonus', reward: 'scythe' }], hint: 'ボーナス戦のSHADEに勝つ' },
+  { kind: 'attack', id: 'scythe_sweep', name: ATTACKS.scythe_sweep.name, anyOf: [{ type: 'weapon', weapon: 'scythe' }], hint: 'SCYTHEを使えるようになる' },
+  { kind: 'skill', id: 'echo_charge', name: SKILLS.echo_charge.name, anyOf: [{ type: 'bonus', reward: 'echo_charge' }], hint: 'ボーナス戦のSHADEに勝つ' },
   { kind: 'color', id: 'mint', name: 'ミント', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'peach', name: 'もも', anyOf: [], hint: 'ショップで購入' },
   { kind: 'color', id: 'lemon', name: 'レモン', anyOf: [], hint: 'ショップで購入' },

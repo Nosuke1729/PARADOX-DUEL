@@ -31,6 +31,7 @@ export class StoryAI {
     const distance = player.x - bot.x
     const toward = Math.sign(distance) || 1
     const range = bot.loadout.weapon === 'blaster' ? 265 : bot.loadout.weapon === 'whip' ? 132 :
+      bot.loadout.weapon === 'scythe' ? 102 :
       bot.loadout.weapon === 'spear' ? 122 : bot.loadout.weapon === 'yoyo' ? 93 :
         bot.loadout.weapon === 'dagger' ? 51 : bot.loadout.weapon === 'fan' ? 56 : 72
     const retreating = bot.hp / bot.maxHp < 0.28 && !secondPhase
@@ -38,7 +39,7 @@ export class StoryAI {
       this.move = Math.abs(distance) > range + 15 ? toward : Math.abs(distance) < range - 35 || retreating ? -toward : 0
     }
     const targetInRange = Math.abs(distance) < (bot.loadout.weapon === 'blaster' ? 550 :
-      bot.loadout.weapon === 'whip' ? 167 : bot.loadout.weapon === 'spear' ? 150 :
+      bot.loadout.weapon === 'whip' ? 167 : bot.loadout.weapon === 'scythe' ? 144 : bot.loadout.weapon === 'spear' ? 150 :
         bot.loadout.weapon === 'yoyo' ? 120 : bot.loadout.weapon === 'dagger' ? 75 :
           bot.loadout.weapon === 'fan' ? 85 : 105) &&
       Math.abs(player.y - bot.y) < (bot.loadout.weapon === 'fan' || bot.loadout.weapon === 'whip' ? 95 : 74)

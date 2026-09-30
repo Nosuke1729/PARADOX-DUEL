@@ -67,6 +67,15 @@ function bodyCanvas(character: Character, color: number): HTMLCanvasElement {
     box(ctx, 8, 4, 20, 18, outline); box(ctx, 10, 6, 16, 14, paint(color))
     box(ctx, 9, 11, 19, 5, '#162a36'); box(ctx, 12, 12, 13, 2, '#effcff')
     poly(ctx, [[13, 4], [16, 0], [19, 4], [22, 0], [24, 5]], light)
+  } else if (character === 'shade') {
+    // A hood and split cloak distinguish this Echo specialist at game scale.
+    poly(ctx, [[7, 20], [29, 20], [34, 53], [22, 48], [18, 55], [11, 48], [2, 53]], outline)
+    poly(ctx, [[10, 23], [27, 23], [30, 48], [22, 44], [18, 51], [12, 44], [6, 49]], paint(color))
+    box(ctx, 10, 47, 6, 8, shade); box(ctx, 22, 47, 6, 8, shade)
+    poly(ctx, [[5, 21], [8, 3], [18, 0], [28, 3], [31, 21], [27, 26], [8, 26]], outline)
+    poly(ctx, [[8, 20], [11, 5], [18, 3], [25, 5], [28, 20]], light)
+    box(ctx, 10, 11, 17, 10, '#101827')
+    box(ctx, 12, 14, 5, 2, '#d7faff'); box(ctx, 21, 14, 5, 2, '#d7faff')
   } else {
     // The balanced fighter has a jacket, separate arms and a clear face.
     box(ctx, 7, 46, 8, 10, outline); box(ctx, 22, 46, 8, 10, outline)
@@ -148,6 +157,13 @@ function weaponCanvas(weapon: Weapon, color: number): HTMLCanvasElement {
       stroke(ctx, 56, -17, 73, -8, 4, '#b69c72')
       stroke(ctx, 73, -8, 92, -16, 3, '#b69c72')
       stroke(ctx, 92, -16, 105, -10, 2, accent)
+      break
+    case 'scythe':
+      stroke(ctx, 26, -5, 84, -23, 6, edge)
+      stroke(ctx, 28, -5, 84, -23, 3, '#9c85b5')
+      poly(ctx, [[79, -26], [106, -40], [101, -31], [87, -24], [104, -14], [95, -13]], edge)
+      poly(ctx, [[83, -27], [103, -37], [98, -30], [85, -24], [99, -16]], steel)
+      stroke(ctx, 32, -6, 61, -15, 1, accent)
       break
   }
   return result

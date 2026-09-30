@@ -6,7 +6,7 @@ export interface BossConfig {
   id: string
   hpMultiplier: number
   phaseAt: number
-  special: 'dash_burst' | 'iron_guard' | 'echo_pressure'
+  special: 'dash_burst' | 'iron_guard' | 'echo_pressure' | 'ground_pulse'
 }
 export interface StoryChapter {
   id: number
@@ -16,6 +16,7 @@ export interface StoryChapter {
   enemyName: string
   enemy: Loadout
   difficulty: Difficulty
+  bonus?: boolean
   boss?: BossConfig
   mechanic?: StoryMechanic
   rewardXp: number

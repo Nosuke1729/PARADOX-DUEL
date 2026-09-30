@@ -1,10 +1,11 @@
-import type { AttackStyle, Character, Loadout, Skill, Slot, Weapon } from './types'
+import { RULES, type AttackStyle, type Character, type Loadout, type Skill, type Slot, type Weapon } from './types'
 import { HATS } from './cosmetics'
 
 export interface CharacterConfig {
   name: string; subtitle: string; description: string; hp: number; moveSpeed: number
   airSpeed: number; jumpSpeed: number; dashSpeed: number; power: number; knockback: number
   attackRecoveryFrames: number; airJumps: number; ratings: string
+  echoCooldownMultiplier?: number
 }
 export interface WeaponConfig {
   name: string; subtitle: string; description: string; startup: number; active: number
@@ -18,6 +19,7 @@ export const CHARACTERS: Record<Character, CharacterConfig> = {
   light: { name: 'LIGHT', subtitle: '高速型', description: '低HP・低威力の代わりに移動、ジャンプ、ダッシュが速い。Echoとの位置調整に強い。', hp: 78, moveSpeed: 395, airSpeed: 360, jumpSpeed: 780, dashSpeed: 930, power: 0.8, knockback: 1.2, attackRecoveryFrames: 0, airJumps: 0, ratings: 'HP ★★ / SPEED ★★★★★ / POWER ★★ / MOBILITY ★★★★★' },
   heavy: { name: 'HEAVY', subtitle: '重量型', description: '高HPで吹き飛びにくい。攻撃は少し強いが、動きと攻撃後の立て直しが遅い。', hp: 118, moveSpeed: 285, airSpeed: 250, jumpSpeed: 650, dashSpeed: 700, power: 1.1, knockback: 0.8, attackRecoveryFrames: 10, airJumps: 0, ratings: 'HP ★★★★ / SPEED ★★ / POWER ★★★ / MOBILITY ★★' },
   hopper: { name: 'HOPPER', subtitle: '二段ジャンプ型', description: '空中でもう一度ジャンプできる。地上の速さと攻撃力は控えめなので、上からの位置取りが得意。', hp: 90, moveSpeed: 305, airSpeed: 350, jumpSpeed: 690, dashSpeed: 790, power: 0.9, knockback: 1.1, attackRecoveryFrames: 0, airJumps: 1, ratings: 'HP ★★ / SPEED ★★★ / POWER ★★ / MOBILITY ★★★★★' },
+  shade: { name: 'SHADE', subtitle: '分身特化', description: '分身を約7秒でまた出せる。HPと通常攻撃の威力が低く、本体だけでの殴り合いは苦手。', hp: 74, moveSpeed: 350, airSpeed: 330, jumpSpeed: 735, dashSpeed: 830, power: 0.88, knockback: 1.18, attackRecoveryFrames: 0, airJumps: 0, echoCooldownMultiplier: 0.7, ratings: 'HP ★★ / SPEED ★★★★ / POWER ★★ / ECHO ★★★★★' },
 }
 export const WEAPONS: Record<Weapon, WeaponConfig> = {
   sword: { name: 'SWORD', subtitle: '近距離', description: '発生が速く扱いやすい斬撃。射程は短い。', startup: 7, active: 6, total: 27, damage: 13, reach: 70, height: 44 },
@@ -28,6 +30,7 @@ export const WEAPONS: Record<Weapon, WeaponConfig> = {
   fan: { name: 'FAN', subtitle: '対空・広め', description: '扇で広くはたく。ジャンプした相手に強いが、威力と正面の射程は控えめ。', startup: 13, active: 8, total: 35, damage: 10, reach: 58, height: 79 },
   yoyo: { name: 'YO-YO', subtitle: '中距離・牽制', description: '中距離まで伸びるヨーヨー。威力は低いが、長めの攻撃時間で相手の進路をふさげる。', startup: 9, active: 8, total: 31, damage: 9, reach: 91, height: 38 },
   whip: { name: 'WHIP', subtitle: '遠め・広範囲', description: '遠くまで届き、上下にも当てやすいムチ。振り始めと空振り後の隙が大きい。', startup: 18, active: 5, total: 48, damage: 10, reach: 139, height: 58 },
+  scythe: { name: 'SCYTHE', subtitle: '広い一撃', description: '広い範囲を強く払う大鎌。振り始めが遅く、外すと長く無防備になる。', startup: 27, active: 6, total: 67, damage: 21, reach: 108, height: 68 },
 }
 export const SKILLS: Record<Skill, SkillConfig> = {
   blink: { name: 'BLINK', subtitle: '8秒', description: '向いている方向へ短距離瞬間移動。回避、接近、Echoとの位置合わせに使う。', cooldown: 480 },
@@ -35,6 +38,7 @@ export const SKILLS: Record<Skill, SkillConfig> = {
   shockwave: { name: 'SHOCKWAVE', subtitle: '12秒', description: '周囲の敵を吹き飛ばす衝撃波。ダメージより位置操作を重視する。', cooldown: 720 },
   echo_swap: { name: 'ECHO SWAP', subtitle: '10秒', description: '自分のEchoが出ている間だけ、本体とEchoの位置を入れ替える。', cooldown: 600 },
   spring: { name: 'SPRING', subtitle: '10秒', description: '上へ大きくジャンプ。空中でも使えるが、飛んでいる間は攻撃を受ける。', cooldown: 600 },
+  echo_charge: { name: 'ECHO CHARGE', subtitle: '26秒', description: '記録がたまっていて分身がいないとき、分身の待ち時間を無視してもう一度呼ぶ。再使用までは長い。', cooldown: 1560 },
 }
 export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   basic_slash: { ...WEAPONS.sword, weapon: 'sword', name: 'BASIC SLASH', subtitle: '標準', description: '素早く振るう標準の斬撃。' },
@@ -54,13 +58,17 @@ export const ATTACKS: Record<AttackStyle, AttackConfig> = {
   yoyo_high: { ...WEAPONS.yoyo, weapon: 'yoyo', name: 'HIGH TOSS', subtitle: '対空', description: '上へヨーヨーを放る。正面の距離は短くなるので、跳んだ相手を読む技。', startup: 14, active: 7, total: 39, damage: 10, reach: 72, height: 86, verticalOffset: -24 },
   whip_snap: { ...WEAPONS.whip, weapon: 'whip', name: 'WHIP SNAP', subtitle: '標準', description: '広い範囲を一度はたく。遠くまで届く反面、外した後は反撃されやすい。' },
   whip_sweep: { ...WEAPONS.whip, weapon: 'whip', name: 'LOW SWEEP', subtitle: '押し出し', description: '近くの広い範囲を払う。射程と威力を減らして、相手を押し返す。', startup: 21, active: 7, total: 51, damage: 8, reach: 99, height: 76, knockback: 1.3 },
+  scythe_sweep: { ...WEAPONS.scythe, weapon: 'scythe', name: 'SCYTHE SWEEP', subtitle: '広い一撃', description: 'ゆっくり大きく払う。先に動きを読めば強いが、空振りの隙はかなり大きい。', verticalOffset: -6, knockback: 1.2 },
 }
-export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat', yoyo: 'yoyo_toss', whip: 'whip_snap' }
+export const DEFAULT_ATTACK: Record<Weapon, AttackStyle> = { sword: 'basic_slash', spear: 'spear_thrust', blaster: 'blaster_shot', dagger: 'dagger_stab', hammer: 'hammer_smash', fan: 'fan_swat', yoyo: 'yoyo_toss', whip: 'whip_snap', scythe: 'scythe_sweep' }
 export function attackFor(weapon: Weapon, attack?: AttackStyle): AttackConfig {
   return attack && ATTACKS[attack]?.weapon === weapon ? ATTACKS[attack] : ATTACKS[DEFAULT_ATTACK[weapon]]
 }
 export function attackCycleFrames(loadout: Pick<Loadout, 'character' | 'weapon' | 'attack'>): number {
   return attackFor(loadout.weapon, loadout.attack).total + CHARACTERS[loadout.character].attackRecoveryFrames
+}
+export function echoCooldownFrames(character: Character): number {
+  return Math.round(RULES.echoCooldown * (CHARACTERS[character].echoCooldownMultiplier ?? 1))
 }
 export function nextAirJumpUse(character: Character, grounded: boolean, used: number): number | undefined {
   if (grounded) return 0

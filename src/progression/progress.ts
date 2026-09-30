@@ -2,6 +2,7 @@ import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from '../game/ba
 import { DEFAULT_LOADOUT, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from '../game/types'
 import { chapterById, STORY_CHAPTERS, type StoryChapter } from '../story/chapters'
 import { challengeFor, titleFor } from '../story/challenges'
+import { BONUS_CHAPTER, BONUS_CONFIG, BONUS_REWARDS, eligibleForBonus, type BonusRewardId } from '../story/bonus'
 import { COLORS, GEAR_CAPSULE_ITEMS, HATS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
 
 export const PROGRESS_KEY = 'paradox-duel:progress:v1'
@@ -18,8 +19,9 @@ export interface PlayerProgress {
   onlineWins: number; onlineLosses: number
   characterUses: Record<Character, number>
   earnedTitles: string[]; selectedTitle: string | null
+  bonus: { attempts: number; dryStreak: number; active: boolean; rewards: BonusRewardId[] }
 }
-export type ProgressEvent = { kind: 'level' | 'mastery' | 'unlock' | 'title'; title: string; detail: string }
+export type ProgressEvent = { kind: 'level' | 'mastery' | 'unlock' | 'title' | 'bonus'; title: string; detail: string }
 
 const masteryStart = (level = 0): MasteryProgress => ({ level, currentXp: 0, totalXp: 0 })
 export function newProgress(): PlayerProgress {
@@ -29,9 +31,10 @@ export function newProgress(): PlayerProgress {
     unlockedSkills: [...STARTER_UNLOCKS.skill], unlockedAttacks: [...STARTER_UNLOCKS.attack],
     unlockedColors: [...STARTER_UNLOCKS.color], ownedCosmetics: [], ownedGear: [], selectedLoadout: { ...DEFAULT_LOADOUT },
     storyProgress: { clearedChapters: [], defeatedBosses: [] },
-    characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart(), hopper: masteryStart() },
-    onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0, hopper: 0 },
+    characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart(), hopper: masteryStart(), shade: masteryStart() },
+    onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0, hopper: 0, shade: 0 },
     earnedTitles: [], selectedTitle: null,
+    bonus: { attempts: 0, dryStreak: 0, active: false, rewards: [] },
   }
 }
 export function xpForNextLevel(level: number): number { return 100 + Math.max(0, level - 1) * 50 }
@@ -52,6 +55,14 @@ export function hydrateProgress(raw: unknown): PlayerProgress {
   progress.earnedTitles = [...new Set(names(source.earnedTitles).filter(id => Boolean(titleFor(id))))]
   progress.selectedTitle = typeof source.selectedTitle === 'string' && progress.earnedTitles.includes(source.selectedTitle)
     ? source.selectedTitle : null
+  const bonus = record(source.bonus)
+  const bonusIds = new Set<string>(BONUS_REWARDS.map(reward => reward.id))
+  progress.bonus = {
+    attempts: Math.min(BONUS_CONFIG.attempts, nonnegative(bonus.attempts)),
+    dryStreak: Math.min(BONUS_CONFIG.pityAfter - 1, nonnegative(bonus.dryStreak)),
+    active: false, // A reload consumes an in-progress attempt; it cannot replay a result.
+    rewards: [...new Set(names(bonus.rewards).filter((id): id is BonusRewardId => bonusIds.has(id)))],
+  }
   progress.ownedCosmetics = [...new Set(names(source.ownedCosmetics).filter(id =>
     id in COLORS && id !== 'default' && id !== 'arc_cyan' || id.startsWith('hat:') && Object.hasOwn(HATS, id.slice(4)) && id !== 'hat:none'))]
   const gearKeys = new Set(GEAR_CAPSULE_ITEMS.map(item => `${item.kind}:${item.id}`))
@@ -90,6 +101,7 @@ function conditionMet(progress: PlayerProgress, condition: UnlockCondition): boo
     case 'boss': return progress.storyProgress.defeatedBosses.includes(condition.id)
     case 'mastery': return progress.characterMastery[condition.character].level >= condition.level
     case 'weapon': return progress.unlockedWeapons.includes(condition.weapon)
+    case 'bonus': return progress.bonus.rewards.includes(condition.reward as BonusRewardId)
   }
 }
 export function canUse(progress: PlayerProgress, kind: UnlockKind, id: string): boolean {
@@ -175,7 +187,8 @@ export function storyReward(chapter: Pick<StoryChapter, 'rewardXp' | 'rewardCoin
     { xp: Math.max(25, Math.round(chapter.rewardXp * 0.25)),
       coins: Math.max(10, Math.min(120, Math.round(chapter.rewardCoins * 0.2))) }
 }
-export function awardStoryVictory(progress: PlayerProgress, chapterId: number, character: Character, challengeComplete = false): ProgressEvent[] {
+export function awardStoryVictory(progress: PlayerProgress, chapterId: number, character: Character,
+  challengeComplete = false, random: () => number = Math.random): ProgressEvent[] {
   const chapter = chapterById(chapterId)
   if (!chapter || !isChapterAvailable(progress, chapterId)) return []
   const firstClear = !progress.storyProgress.clearedChapters.includes(chapterId)
@@ -193,6 +206,44 @@ export function awardStoryVictory(progress: PlayerProgress, chapterId: number, c
     progress.selectedTitle ??= challenge.id
     progress.coins += challenge.bonusCoins
     events.push({ kind: 'title', title: '称号を獲得！', detail: `${challenge.title} / +${challenge.bonusCoins} コイン` })
+  }
+  events.push(...syncUnlocks(progress))
+  if (chapterId >= BONUS_CONFIG.minChapter && progress.bonus.attempts === 0 &&
+    progress.bonus.rewards.length < BONUS_REWARDS.length) {
+    if (eligibleForBonus(chapterId, progress.bonus.attempts, progress.bonus.dryStreak,
+      BONUS_REWARDS.length - progress.bonus.rewards.length, random())) {
+      progress.bonus.attempts = BONUS_CONFIG.attempts
+      progress.bonus.dryStreak = 0
+      events.push({ kind: 'bonus', title: '強敵が現れた！', detail: `ストーリーにボーナス戦が出現。${BONUS_CONFIG.attempts}回挑戦できます。` })
+    } else progress.bonus.dryStreak++
+  }
+  return events
+}
+
+export function beginBonusAttempt(progress: PlayerProgress): boolean {
+  if (progress.bonus.active || progress.bonus.attempts <= 0 ||
+    progress.bonus.rewards.length >= BONUS_REWARDS.length) return false
+  progress.bonus.attempts--
+  progress.bonus.active = true
+  return true
+}
+
+export function finishBonusAttempt(progress: PlayerProgress, won: boolean, character: Character,
+  random: () => number = Math.random): ProgressEvent[] {
+  if (!progress.bonus.active) return []
+  progress.bonus.active = false
+  if (!won) return []
+  progress.bonus.attempts = 0
+  progress.coins += BONUS_CHAPTER.rewardCoins
+  const events: ProgressEvent[] = [
+    { kind: 'bonus', title: '強敵に勝利！', detail: `+${BONUS_CHAPTER.rewardXp} XP / +${BONUS_CHAPTER.rewardCoins} コイン` },
+    ...awardXp(progress, BONUS_CHAPTER.rewardXp), ...awardMastery(progress, character, 110),
+  ]
+  const remaining = BONUS_REWARDS.filter(reward => !progress.bonus.rewards.includes(reward.id))
+  if (remaining.length) {
+    const reward = remaining[Math.min(remaining.length - 1, Math.floor(Math.max(0, random()) * remaining.length))]
+    progress.bonus.rewards.push(reward.id)
+    events.push({ kind: 'bonus', title: '特別な報酬！', detail: `${reward.name} / ${reward.kind === 'character' ? 'キャラ' : reward.kind === 'weapon' ? '武器' : 'スキル'}` })
   }
   events.push(...syncUnlocks(progress))
   return events

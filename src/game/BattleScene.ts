@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { Echo } from './Echo'
 import { Fighter } from './Fighter'
 import { HitLedger, attackRect, hurtRect, projectileRect } from './CombatMath'
-import { attackFor, CHARACTERS, SKILLS, WEAPONS, damageFor, winnerByHealth } from './balance'
+import { attackFor, CHARACTERS, SKILLS, WEAPONS, damageFor, echoCooldownFrames, winnerByHealth } from './balance'
 import { InputManager } from './InputManager'
 import { soundFX } from './SoundFX'
 import { EMPTY_CONTROLS, RULES, WORLD, type AttackStyle, type Controls, type EchoPacket, type FighterState, type Loadout, type MatchEvent, type Phase, type ProjectileState, type Slot, type Snapshot, type Weapon } from './types'
@@ -11,6 +11,7 @@ import { StoryAI } from '../story/StoryAI'
 import type { StoryChapter } from '../story/chapters'
 import { challengeFor, EchoChallengeTracker } from '../story/challenges'
 import { canDamageStoryEnemy, specialStageWinner } from '../story/mechanics'
+import { BONUS_CONFIG, groundPulseHits } from '../story/bonus'
 import { weaponPose } from './AttackVisual'
 
 export interface BattleOptions {
@@ -68,6 +69,10 @@ export class BattleScene extends Phaser.Scene {
   private challenge?: EchoChallengeTracker
   private challengeFlashFrames = 0
   private mechanicFlashFrames = 0
+  private pulseCooldown: number = BONUS_CONFIG.pulseFirst
+  private pulseWarning = 0
+  private pulseFlashFrames = 0
+  private pulseOriginX = 0
 
   constructor(options: BattleOptions) {
     super('Battle')
@@ -257,9 +262,11 @@ export class BattleScene extends Phaser.Scene {
       this.spawnProjectiles()
       this.resolveCombat()
       this.stepProjectiles()
+      if (this.phase === 'playing' && this.options.story?.boss?.special === 'ground_pulse') this.stepGroundPulse()
       this.cleanupEchoes()
       this.effects.forEach(effect => effect.frames--)
       this.effects = this.effects.filter(effect => effect.frames > 0)
+      if (this.pulseFlashFrames > 0) this.pulseFlashFrames--
       this.timer--
       if (this.timer <= 0) this.endRound()
     }
@@ -297,7 +304,7 @@ export class BattleScene extends Phaser.Scene {
       matchId: this.matchId, round: this.round, owner: fighter.slot,
       echoId: this.tick, startTick: this.tick, frames: fighter.recorder.capture(),
     }
-    fighter.echoCooldown = RULES.echoCooldown
+    fighter.echoCooldown = echoCooldownFrames(fighter.loadout.character)
     this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack, fighter.color, fighter.loadout.hat))
     if (fighter.slot === 1) this.trackChallenge(() => this.challenge?.recordEchoSummon())
     soundFX.play('echo')
@@ -346,6 +353,11 @@ export class BattleScene extends Phaser.Scene {
     } else if (skill === 'spring') {
       fighter.body.setVelocityY(-780)
       this.effects.push({ x: fighter.x, y: fighter.y + 22, radius: 34, frames: 18, color: fighter.color })
+    } else if (skill === 'echo_charge') {
+      if (!fighter.recorder.ready() || echo) return
+      fighter.echoCooldown = 0
+      if (authoritative) this.tryEcho(fighter, true)
+      this.effects.push({ x: fighter.x, y: fighter.y, radius: 65, frames: 22, color: fighter.color })
     }
     fighter.skillCooldown = SKILLS[skill].cooldown
     if (authoritative) this.options.room?.sendEvent({ kind: 'skill', matchId: this.matchId, round: this.round,
@@ -435,15 +447,39 @@ export class BattleScene extends Phaser.Scene {
   private targetId(target: Fighter): string { return target === this.extraStoryEnemy ? 'side' : String(target.slot) }
 
   private onFighterDefeated(target: Fighter): void {
-    if (this.options.story?.mechanic && target.slot === 2) {
+    if ((this.options.story?.mechanic || this.options.story?.bonus) && target.slot === 2) {
       target.attackFrame = 0
       target.body.setVelocity(0, 0)
       target.body.enable = false
       target.sprite.setAlpha(0.22)
     }
-    if (!this.options.story?.mechanic || specialStageWinner(this.fighters[0].hp, this.storyEnemies().map(fighter => fighter.hp))) {
+    if ((!this.options.story?.mechanic && !this.options.story?.bonus) ||
+      specialStageWinner(this.fighters[0].hp, this.storyEnemies().map(fighter => fighter.hp))) {
       this.endRound()
     }
+  }
+
+  private stepGroundPulse(): void {
+    if (this.pulseWarning > 0) {
+      this.pulseWarning--
+      if (this.pulseWarning === 0) {
+        const player = this.fighters[0]
+        this.pulseFlashFrames = 18
+        soundFX.play('skill')
+        if (player.hurtCooldown === 0 && groundPulseHits(player.x, player.y, this.pulseOriginX, WORLD.floorY)) {
+          const direction: -1 | 1 = player.x >= this.pulseOriginX ? 1 : -1
+          const hit = player.hit(BONUS_CONFIG.pulseDamage, direction, 1.15)
+          if (!hit.blocked) { soundFX.play('hit'); this.cameras.main.shake(110, 0.006) }
+          if (player.hp <= 0) this.onFighterDefeated(player)
+        }
+        this.pulseCooldown = BONUS_CONFIG.pulseInterval
+      }
+      return
+    }
+    if (this.fighters[1].hp <= 0 || --this.pulseCooldown > 0) return
+    this.pulseOriginX = this.fighters[1].x
+    this.pulseWarning = BONUS_CONFIG.pulseWarning
+    soundFX.play('skill')
   }
 
   private cleanupEchoes(): void {
@@ -457,7 +493,7 @@ export class BattleScene extends Phaser.Scene {
   private endRound(): void {
     if (this.phase !== 'playing') return
     const [p1, p2] = this.fighters
-    const winner = this.options.story?.mechanic
+    const winner = this.options.story?.mechanic || this.options.story?.bonus
       ? specialStageWinner(p1.hp, this.storyEnemies().map(fighter => fighter.hp)) ?? 2
       : winnerByHealth([p1.hp, p2.hp], [p1.loadout, p2.loadout], [p1.maxHp, p2.maxHp])
     if (winner) this.wins[winner - 1]++
@@ -608,6 +644,7 @@ export class BattleScene extends Phaser.Scene {
       if (event.skill === 'shield') fighter.shieldFrames = 48
       if (event.skill === 'shockwave') this.effects.push({ x: event.x, y: event.y, radius: 155, frames: 20, color: fighter.color })
       if (event.skill === 'spring') this.effects.push({ x: event.x, y: event.y + 22, radius: 34, frames: 18, color: fighter.color })
+      if (event.skill === 'echo_charge') this.effects.push({ x: event.x, y: event.y, radius: 65, frames: 22, color: fighter.color })
       if (event.skill === 'echo_swap' && event.echoId !== undefined) {
         const echo = this.echoes.find(item => item.owner === event.slot && item.packet.echoId === event.echoId)
         if (echo && event.echoX !== undefined && event.echoY !== undefined) echo.relocate(event.echoX, event.echoY)
@@ -677,6 +714,9 @@ export class BattleScene extends Phaser.Scene {
     this.challenge?.reset()
     this.challengeFlashFrames = 0
     this.mechanicFlashFrames = 0
+    this.pulseCooldown = BONUS_CONFIG.pulseFirst
+    this.pulseWarning = 0
+    this.pulseFlashFrames = 0
     this.rematchReady.clear()
     this.announcedMatchEnd = false
     this.lastSnapshotTick = -1
@@ -717,7 +757,8 @@ export class BattleScene extends Phaser.Scene {
       for (let n = 0; n < this.wins[1]; n++) this.hud.fillStyle(p2.color).fillCircle(916 - n * 18, 80, 6)
     }
     this.topText.setText(`${Math.ceil(this.timer / 60)}`)
-    this.challengeText.setText(this.challengeFlashFrames > 0 ? `称号チャレンジ達成！  ${this.challenge?.challenge.title}` :
+    this.challengeText.setText(this.pulseWarning > 0 ? '地面に衝撃波！ ジャンプでよけよう' :
+      this.challengeFlashFrames > 0 ? `称号チャレンジ達成！  ${this.challenge?.challenge.title}` :
       this.mechanicFlashFrames > 0 ? '本体の攻撃は効かない！' :
         this.options.story?.mechanic?.kind === 'echo_only' ? '分身の攻撃だけが有効' :
           this.options.story?.mechanic?.kind === 'duo' ? '2人とも倒そう' : '')
@@ -748,6 +789,15 @@ export class BattleScene extends Phaser.Scene {
     }
     for (const effect of this.effects) this.attacks.lineStyle(3, effect.color, effect.frames / 20)
       .strokeCircle(effect.x, effect.y, effect.radius * (1 - effect.frames / 30))
+    if (this.pulseWarning > 0 || this.pulseFlashFrames > 0) {
+      const left = Math.max(0, this.pulseOriginX - BONUS_CONFIG.pulseRadius)
+      const right = Math.min(WORLD.width, this.pulseOriginX + BONUS_CONFIG.pulseRadius)
+      const flashing = this.pulseFlashFrames > 0
+      this.attacks.fillStyle(flashing ? 0xe3b2ff : 0xc97dff, flashing ? 0.4 : 0.14)
+        .fillRect(left, WORLD.floorY - 67, right - left, 67)
+      this.attacks.lineStyle(flashing ? 5 : 3, 0xe5b8ff, flashing ? 0.95 : 0.65)
+        .lineBetween(left, WORLD.floorY - 67, right, WORLD.floorY - 67)
+    }
   }
 
   private drawBar(x: number, y: number, hp: number, maxHp: number, color: number, reverse: boolean): void {
@@ -789,7 +839,7 @@ export class BattleScene extends Phaser.Scene {
         x + facing * (far - 4), y - 10, x + facing * (far - 4), y)
       return
     }
-    const radius = weapon === 'hammer' ? 69 : weapon === 'fan' ? 53 : weapon === 'spear' ? 80 : weapon === 'yoyo' ? 77 :
+    const radius = weapon === 'scythe' ? 94 : weapon === 'hammer' ? 69 : weapon === 'fan' ? 53 : weapon === 'spear' ? 80 : weapon === 'yoyo' ? 77 :
       attack === 'heavy_slash' ? 73 : attack === 'upper_slash' ? 57 : 64
     const firstAngle = weaponPose(weapon, attack, config.startup + 1).rotation
     const lastAngle = weaponPose(weapon, attack, frame).rotation
