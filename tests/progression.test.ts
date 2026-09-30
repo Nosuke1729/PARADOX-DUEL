@@ -4,6 +4,7 @@ import { attackCycleFrames, attackFor, CHARACTERS, damageFor, isLoadout, nextAir
 import { STORY_CHAPTERS } from '../src/story/chapters'
 import { challengeFor, EchoChallengeTracker } from '../src/story/challenges'
 import { StoryAI } from '../src/story/StoryAI'
+import { canDamageStoryEnemy, specialStageWinner } from '../src/story/mechanics'
 import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, selectTitle, storyReward, xpForNextLevel } from '../src/progression/progress'
 
 test('new pilots start with only NORMAL, SWORD, BLINK and BASIC SLASH', () => {
@@ -122,8 +123,8 @@ test('later story replays pay a useful but capped coin reward', () => {
   assert.equal(progress.coins, 72)
 })
 
-test('fifteen story stages are configured and AI range adapts to weapon', () => {
-  assert.equal(STORY_CHAPTERS.length, 15)
+test('seventeen story stages are configured and AI range adapts to weapon', () => {
+  assert.equal(STORY_CHAPTERS.length, 17)
   const ai = new StoryAI('normal', undefined, () => 0.99)
   const fighter = (weapon: 'sword' | 'blaster' | 'whip' | 'yoyo') => ({
     x: 500, y: 400, hp: 100, maxHp: 100, attackFrame: 0, grounded: true, airJumpsUsed: 0,
@@ -138,6 +139,28 @@ test('fifteen story stages are configured and AI range adapts to weapon', () => 
   assert.equal(whip.input(fighter('whip'), player, 13).held.left, false)
   const yoyo = new StoryAI('normal', undefined, () => 0.99)
   assert.equal(yoyo.input(fighter('yoyo'), player, 13).held.left, true)
+})
+
+test('special stages keep Echo-only damage and both-enemy clear conditions', () => {
+  const echoOnly = STORY_CHAPTERS[15]
+  const duo = STORY_CHAPTERS[16]
+  assert.equal(echoOnly.mechanic?.kind, 'echo_only')
+  assert.equal(duo.mechanic?.kind, 'duo')
+  assert.equal(canDamageStoryEnemy(echoOnly.mechanic, 1, 'body'), false)
+  assert.equal(canDamageStoryEnemy(echoOnly.mechanic, 1, 'echo'), true)
+  assert.equal(canDamageStoryEnemy(echoOnly.mechanic, 2, 'body'), true)
+  assert.equal(canDamageStoryEnemy(duo.mechanic, 1, 'body'), true)
+  assert.equal(specialStageWinner(60, [0, 14]), undefined)
+  assert.equal(specialStageWinner(60, [0, 0]), 1)
+  assert.equal(specialStageWinner(0, [0, 0]), 2)
+  assert.equal(specialStageWinner(60, [40]), undefined)
+  const progress = newProgress()
+  for (const chapter of STORY_CHAPTERS.slice(0, 15)) awardStoryVictory(progress, chapter.id, 'standard')
+  assert.equal(isChapterAvailable(progress, 16), true)
+  awardStoryVictory(progress, 16, 'standard')
+  assert.equal(isChapterAvailable(progress, 17), true)
+  awardStoryVictory(progress, 17, 'standard')
+  assert.ok(hydrateProgress(JSON.parse(JSON.stringify(progress))).storyProgress.clearedChapters.includes(17))
 })
 
 test('HOPPER has one extra air jump and unlocks after its story boss', () => {

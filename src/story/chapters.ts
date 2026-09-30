@@ -1,4 +1,5 @@
 import type { Loadout } from '../game/types'
+import type { StoryMechanic } from './mechanics'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export interface BossConfig {
@@ -16,6 +17,7 @@ export interface StoryChapter {
   enemy: Loadout
   difficulty: Difficulty
   boss?: BossConfig
+  mechanic?: StoryMechanic
   rewardXp: number
   rewardCoins: number
   arena?: { platformX: number; platformY: number; platformWidth: number; accent: number }
@@ -70,6 +72,16 @@ export const STORY_CHAPTERS: readonly StoryChapter[] = [
     enemy: { character: 'hopper', weapon: 'fan', skill: 'blink', attack: 'fan_swat' }, difficulty: 'hard',
     boss: { id: 'hopper', hpMultiplier: 1.4, phaseAt: 0.45, special: 'dash_burst' }, rewardXp: 1120, rewardCoins: 700,
     arena: { platformX: 383, platformY: 330, platformWidth: 194, accent: 0xa9dc8a } },
+  { id: 16, title: '本体の攻撃、通りません', subtitle: '分身だけが決め手',
+    briefing: '本体の攻撃とスキルでは相手のHPを減らせません。攻撃の動きを記録して、Lキーで出した分身に当ててもらおう。', enemyName: '分身待ちの相手',
+    enemy: { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash' }, difficulty: 'easy',
+    mechanic: { kind: 'echo_only', enemyHpMultiplier: 0.52, enemyDamageMultiplier: 0.7 }, rewardXp: 1200, rewardCoins: 740,
+    arena: { platformX: 342, platformY: 323, platformWidth: 276, accent: 0x86d6de } },
+  { id: 17, title: 'ふたりで一人前', subtitle: '弱い相手が2人',
+    briefing: '相手は1人ずつなら弱め。でも、2人とも倒さないとクリアになりません。分身で挟んだり、先に片方を狙ったりしよう。', enemyName: 'ちびファイターズ',
+    enemy: { character: 'standard', weapon: 'sword', skill: 'blink', attack: 'basic_slash' }, difficulty: 'easy',
+    mechanic: { kind: 'duo', enemyHpMultiplier: 0.52, enemyDamageMultiplier: 0.62 }, rewardXp: 1260, rewardCoins: 780,
+    arena: { platformX: 277, platformY: 333, platformWidth: 328, accent: 0xf1aa9b } },
 ]
 
 export function chapterById(id: number): StoryChapter | undefined { return STORY_CHAPTERS.find(chapter => chapter.id === id) }

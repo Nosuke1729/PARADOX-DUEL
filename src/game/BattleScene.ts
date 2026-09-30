@@ -10,6 +10,7 @@ import type { InputPacket, RoomManager } from '../network/RoomManager'
 import { StoryAI } from '../story/StoryAI'
 import type { StoryChapter } from '../story/chapters'
 import { challengeFor, EchoChallengeTracker } from '../story/challenges'
+import { canDamageStoryEnemy, specialStageWinner } from '../story/mechanics'
 import { weaponPose } from './AttackVisual'
 
 export interface BattleOptions {
@@ -62,8 +63,11 @@ export class BattleScene extends Phaser.Scene {
   private absenceTimer?: number
   private connectionLost = false
   private storyAI?: StoryAI
+  private extraStoryEnemy?: Fighter
+  private extraStoryAI?: StoryAI
   private challenge?: EchoChallengeTracker
   private challengeFlashFrames = 0
+  private mechanicFlashFrames = 0
 
   constructor(options: BattleOptions) {
     super('Battle')
@@ -78,11 +82,18 @@ export class BattleScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height)
     this.drawStage()
     this.fighters = [new Fighter(this, 1, this.options.loadouts[0]),
-      new Fighter(this, 2, this.options.loadouts[1], this.options.story?.boss?.hpMultiplier ?? 1)]
+      new Fighter(this, 2, this.options.loadouts[1],
+        this.options.story?.boss?.hpMultiplier ?? this.options.story?.mechanic?.enemyHpMultiplier ?? 1)]
     if (this.options.story) this.storyAI = new StoryAI(this.options.story.difficulty, this.options.story.boss)
+    if (this.options.story?.mechanic?.kind === 'duo') {
+      this.extraStoryEnemy = new Fighter(this, 2, { ...this.options.loadouts[1], color: 'peach' },
+        this.options.story.mechanic.enemyHpMultiplier)
+      this.extraStoryEnemy.teleport(610, WORLD.floorY - 28)
+      this.extraStoryAI = new StoryAI('easy')
+    }
     const floor = this.add.rectangle(WORLD.width / 2, WORLD.floorY + 22, WORLD.width, 44, 0x152234)
     this.physics.add.existing(floor, true)
-    for (const fighter of this.fighters) {
+    for (const fighter of this.allFighters()) {
       this.physics.add.collider(fighter.sprite, floor)
       this.physics.add.collider(fighter.sprite, this.platform, undefined, () => {
         const body = fighter.body
@@ -91,6 +102,10 @@ export class BattleScene extends Phaser.Scene {
       })
     }
     this.physics.add.collider(this.fighters[0].sprite, this.fighters[1].sprite)
+    if (this.extraStoryEnemy) {
+      this.physics.add.collider(this.fighters[0].sprite, this.extraStoryEnemy.sprite)
+      this.physics.add.collider(this.fighters[1].sprite, this.extraStoryEnemy.sprite)
+    }
     if (this.options.mode === 'online' && this.options.room?.slot === 2) {
       this.fighters[0].body.setAllowGravity(false).setImmovable(true)
       this.fighters[0].body.moves = false
@@ -119,7 +134,7 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (this.absenceTimer) window.clearTimeout(this.absenceTimer)
       for (const echo of this.echoes) echo.destroy()
-      for (const fighter of this.fighters) fighter.destroy()
+      for (const fighter of this.allFighters()) fighter.destroy()
       if (this.options.room) {
         this.options.room.onInput = undefined
         this.options.room.onSnapshot = undefined
@@ -165,6 +180,7 @@ export class BattleScene extends Phaser.Scene {
   private fixedStep(): void {
     this.tick++
     if (this.challengeFlashFrames > 0) this.challengeFlashFrames--
+    if (this.mechanicFlashFrames > 0) this.mechanicFlashFrames--
     const local = this.inputReader.read()
     const room = this.options.room
     if (room?.slot === 2) {
@@ -197,16 +213,23 @@ export class BattleScene extends Phaser.Scene {
       this.phaseFrames--
       if (this.phaseFrames <= 0) this.startNextRound()
     } else if (this.phase === 'playing') {
-      const other = this.options.mode === 'story' ? this.storyAI!.input(this.fighters[1], this.fighters[0], this.tick) :
+      const other = this.options.mode === 'story' ? this.fighters[1].hp > 0
+        ? this.storyAI!.input(this.fighters[1], this.fighters[0], this.tick)
+        : { held: { ...EMPTY_CONTROLS }, pressed: { ...EMPTY_CONTROLS } } :
         this.options.mode === 'practice' ? this.botInput() : {
         held: this.latestRemote,
         pressed: this.remotePressed,
       }
-      if (local.pressed.attack || other.pressed.attack) soundFX.play('attack')
+      // The two-fighter lesson stays readable: neither opponent creates more copies.
+      if (this.extraStoryEnemy) { other.held.echo = false; other.pressed.echo = false }
+      const side = this.extraStoryEnemy
+      const sideInput = side && side.hp > 0 ? this.extraStoryAI!.input(side, this.fighters[0], this.tick) : undefined
+      if (local.pressed.attack || other.pressed.attack || sideInput?.pressed.attack) soundFX.play('attack')
       if (local.pressed.dash || other.pressed.dash) soundFX.play('dash')
       if (local.pressed.skill || other.pressed.skill) soundFX.play('skill')
       this.fighters[0].step(local.held, local.pressed)
       this.fighters[1].step(other.held, other.pressed)
+      if (side && sideInput) side.step(sideInput.held, sideInput.pressed)
       if (local.pressed.skill) this.activateSkill(this.fighters[0], this.fighters[1], true)
       if (other.pressed.skill) this.activateSkill(this.fighters[1], this.fighters[0], true)
       this.remotePressed = { ...EMPTY_CONTROLS }
@@ -227,6 +250,7 @@ export class BattleScene extends Phaser.Scene {
         }
         fighter.record()
       }
+      if (side && side.hp > 0) side.record()
       this.tryEcho(this.fighters[0], local.pressed.echo)
       this.tryEcho(this.fighters[1], other.pressed.echo)
       for (const echo of this.echoes) echo.step()
@@ -267,7 +291,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private tryEcho(fighter: Fighter, pressed: boolean): void {
-    if (!pressed || fighter.echoCooldown > 0 || !fighter.recorder.ready() ||
+    if (!pressed || fighter.hp <= 0 || fighter.echoCooldown > 0 || !fighter.recorder.ready() ||
       this.echoes.some(echo => echo.owner === fighter.slot)) return
     const packet: EchoPacket = {
       matchId: this.matchId, round: this.round, owner: fighter.slot,
@@ -299,14 +323,20 @@ export class BattleScene extends Phaser.Scene {
       fighter.shieldFrames = 48
     } else if (skill === 'shockwave') {
       this.effects.push({ x: fighter.x, y: fighter.y, radius: 155, frames: 20, color: fighter.color })
-      if (authoritative && Math.hypot(fighter.x - other.x, (fighter.y - other.y) * 1.5) < 155 && other.hurtCooldown === 0) {
-        const id = `${this.round}:${fighter.slot}:shockwave:${this.tick}:${other.slot}`
-        const direction: -1 | 1 = other.x >= fighter.x ? 1 : -1
-        const knock = other.hit(3, direction, 1.5)
+      for (const target of fighter.slot === 1 ? this.enemyTargets() : [other]) {
+        if (!authoritative || Math.hypot(fighter.x - target.x, (fighter.y - target.y) * 1.5) >= 155 || target.hurtCooldown > 0) continue
+        if (!canDamageStoryEnemy(this.options.story?.mechanic, fighter.slot, 'body')) {
+          this.mechanicFlashFrames = 75
+          soundFX.play('skill')
+          continue
+        }
+        const id = `${this.round}:${fighter.slot}:shockwave:${this.tick}:${this.targetId(target)}`
+        const direction: -1 | 1 = target.x >= fighter.x ? 1 : -1
+        const knock = target.hit(3, direction, 1.5)
         this.options.room?.sendEvent({ kind: 'hit', matchId: this.matchId, round: this.round, id,
-          target: other.slot, hp: other.hp, knockbackX: knock.x, knockbackY: knock.y, blocked: knock.blocked })
+          target: target.slot, hp: target.hp, knockbackX: knock.x, knockbackY: knock.y, blocked: knock.blocked })
         soundFX.play(knock.blocked ? 'skill' : 'hit')
-        if (other.hp <= 0) this.endRound()
+        if (target.hp <= 0) this.onFighterDefeated(target)
       }
     } else if (skill === 'echo_swap') {
       if (!echo) return
@@ -323,9 +353,9 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private spawnProjectiles(): void {
-    for (const fighter of this.fighters) {
+    for (const fighter of this.allFighters()) {
       if (fighter.firesProjectile) this.addProjectile(fighter.slot, fighter.x, fighter.y, fighter.facing,
-        `${this.round}:${fighter.slot}:body:${fighter.attackId}`)
+        `${this.round}:${fighter.slot}:${fighter === this.extraStoryEnemy ? 'side' : 'body'}:${fighter.attackId}`)
     }
     for (const echo of this.echoes) {
       if (echo.firesProjectile) this.addProjectile(echo.owner, echo.x, echo.y, echo.facing,
@@ -344,19 +374,30 @@ export class BattleScene extends Phaser.Scene {
       projectile.x += projectile.vx / 60
       projectile.ttl--
       if (projectile.ttl <= 0 || projectile.x < 0 || projectile.x > WORLD.width) return false
-      const target = this.fighters[projectile.owner === 1 ? 1 : 0]
-      if (!this.hitLedger.claim(`${projectile.id}:${target.slot}`, projectileRect(projectile.x, projectile.y),
-        hurtRect(target.x, target.y), target.hurtCooldown > 0)) return true
-      this.landHit(target, projectile.owner, Math.sign(projectile.vx) as -1 | 1,
-        `${projectile.id}:${target.slot}`, projectile.id.includes(':echo:') ? 'echo' : 'body')
-      return false
+      const targets = projectile.owner === 1 ? this.enemyTargets() : [this.fighters[0]]
+      for (const target of targets) {
+        const id = `${projectile.id}:${this.targetId(target)}`
+        if (!this.hitLedger.claim(id, projectileRect(projectile.x, projectile.y),
+          hurtRect(target.x, target.y), target.hurtCooldown > 0)) continue
+        this.landHit(target, projectile.owner, Math.sign(projectile.vx) as -1 | 1,
+          id, projectile.id.includes(':echo:') ? 'echo' : 'body')
+        return false
+      }
+      return true
     })
     this.projectiles = this.phase === 'playing' ? survivors : []
   }
 
   private landHit(target: Fighter, owner: Slot, facing: -1 | 1, id: string, source: 'body' | 'echo'): void {
+    if (!canDamageStoryEnemy(this.options.story?.mechanic, owner, source)) {
+      this.mechanicFlashFrames = 75
+      soundFX.play('skill')
+      return
+    }
     const loadout = this.fighters[owner - 1].loadout
-    const damage = damageFor(loadout, this.options.mode === 'practice' && owner === 2)
+    const baseDamage = damageFor(loadout, this.options.mode === 'practice' && owner === 2)
+    const damage = owner === 2 && this.options.story?.mechanic
+      ? Math.max(1, Math.round(baseDamage * this.options.story.mechanic.enemyDamageMultiplier)) : baseDamage
     const knock = target.hit(damage, facing, (loadout.weapon === 'blaster' ? 0.7 : 1) *
       (attackFor(loadout.weapon, loadout.attack).knockback ?? 1))
     soundFX.play(knock.blocked ? 'skill' : 'hit')
@@ -364,24 +405,44 @@ export class BattleScene extends Phaser.Scene {
     if (!knock.blocked && owner === 1 && target.slot === 2) this.trackChallenge(() => this.challenge?.recordHit(source, this.tick))
     this.options.room?.sendEvent({ kind: 'hit', matchId: this.matchId, round: this.round, id,
       target: target.slot, hp: target.hp, knockbackX: knock.x, knockbackY: knock.y, blocked: knock.blocked })
-    if (target.hp <= 0) this.endRound()
+    if (target.hp <= 0) this.onFighterDefeated(target)
   }
 
   private resolveCombat(): void {
     const attackers = [
-      ...this.fighters.map(fighter => ({ owner: fighter.slot, x: fighter.x, y: fighter.y, facing: fighter.facing,
-        attackId: fighter.attackId, active: fighter.isAttacking, source: 'body', weapon: fighter.loadout.weapon, attack: fighter.loadout.attack })),
+      ...this.allFighters().map(fighter => ({ owner: fighter.slot, x: fighter.x, y: fighter.y, facing: fighter.facing,
+        attackId: fighter.attackId, active: fighter.hp > 0 && fighter.isAttacking,
+        source: fighter === this.extraStoryEnemy ? 'side' : 'body', weapon: fighter.loadout.weapon, attack: fighter.loadout.attack })),
       ...this.echoes.map(echo => ({ owner: echo.owner, x: echo.x, y: echo.y, facing: echo.facing,
         attackId: echo.attackId, active: echo.isAttacking, source: `echo:${echo.packet.echoId}`, weapon: echo.weapon, attack: echo.attack })),
     ]
     for (const attacker of attackers) {
       if (!attacker.active || attacker.weapon === 'blaster') continue
-      const target = this.fighters[attacker.owner === 1 ? 1 : 0]
-      const id = `${this.round}:${attacker.owner}:${attacker.source}:${attacker.attackId}:${target.slot}`
-      if (!this.hitLedger.claim(id, attackRect(attacker.x, attacker.y, attacker.facing, attacker.weapon, attacker.attack),
-        hurtRect(target.x, target.y), target.hurtCooldown > 0)) continue
-      this.landHit(target, attacker.owner, attacker.facing, id, attacker.source === 'body' ? 'body' : 'echo')
+      for (const target of attacker.owner === 1 ? this.enemyTargets() : [this.fighters[0]]) {
+        const id = `${this.round}:${attacker.owner}:${attacker.source}:${attacker.attackId}:${this.targetId(target)}`
+        if (!this.hitLedger.claim(id, attackRect(attacker.x, attacker.y, attacker.facing, attacker.weapon, attacker.attack),
+          hurtRect(target.x, target.y), target.hurtCooldown > 0)) continue
+        this.landHit(target, attacker.owner, attacker.facing, id, attacker.source.startsWith('echo:') ? 'echo' : 'body')
+        if (this.phase !== 'playing') break
+      }
       if (this.phase !== 'playing') break
+    }
+  }
+
+  private allFighters(): Fighter[] { return this.extraStoryEnemy ? [...this.fighters, this.extraStoryEnemy] : [...this.fighters] }
+  private storyEnemies(): Fighter[] { return this.extraStoryEnemy ? [this.fighters[1], this.extraStoryEnemy] : [this.fighters[1]] }
+  private enemyTargets(): Fighter[] { return this.storyEnemies().filter(fighter => fighter.hp > 0) }
+  private targetId(target: Fighter): string { return target === this.extraStoryEnemy ? 'side' : String(target.slot) }
+
+  private onFighterDefeated(target: Fighter): void {
+    if (this.options.story?.mechanic && target.slot === 2) {
+      target.attackFrame = 0
+      target.body.setVelocity(0, 0)
+      target.body.enable = false
+      target.sprite.setAlpha(0.22)
+    }
+    if (!this.options.story?.mechanic || specialStageWinner(this.fighters[0].hp, this.storyEnemies().map(fighter => fighter.hp))) {
+      this.endRound()
     }
   }
 
@@ -396,7 +457,9 @@ export class BattleScene extends Phaser.Scene {
   private endRound(): void {
     if (this.phase !== 'playing') return
     const [p1, p2] = this.fighters
-    const winner = winnerByHealth([p1.hp, p2.hp], [p1.loadout, p2.loadout], [p1.maxHp, p2.maxHp])
+    const winner = this.options.story?.mechanic
+      ? specialStageWinner(p1.hp, this.storyEnemies().map(fighter => fighter.hp)) ?? 2
+      : winnerByHealth([p1.hp, p2.hp], [p1.loadout, p2.loadout], [p1.maxHp, p2.maxHp])
     if (winner) this.wins[winner - 1]++
     this.phaseFrames = 120
     const nextPhase = this.options.mode === 'story' || this.wins.some(wins => wins >= 2) ? 'match_end' : 'round_end'
@@ -418,7 +481,8 @@ export class BattleScene extends Phaser.Scene {
     this.echoes = []
     this.projectiles = []
     this.effects = []
-    for (const fighter of this.fighters) fighter.reset()
+    for (const fighter of this.allFighters()) fighter.reset()
+    this.restoreExtraStoryEnemy()
     this.setPhase('countdown')
   }
 
@@ -430,7 +494,15 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private stopRoundMotion(): void {
-    for (const fighter of this.fighters) fighter.stopRoundMotion()
+    for (const fighter of this.allFighters()) fighter.stopRoundMotion()
+  }
+
+  private restoreExtraStoryEnemy(): void {
+    if (!this.extraStoryEnemy) return
+    this.extraStoryEnemy.body.enable = true
+    this.extraStoryEnemy.teleport(610, WORLD.floorY - 28)
+    this.extraStoryEnemy.sprite.setAlpha(1)
+    this.extraStoryAI = new StoryAI('easy')
   }
 
   private snapshot(): Snapshot {
@@ -604,6 +676,7 @@ export class BattleScene extends Phaser.Scene {
     this.hitLedger.clear()
     this.challenge?.reset()
     this.challengeFlashFrames = 0
+    this.mechanicFlashFrames = 0
     this.rematchReady.clear()
     this.announcedMatchEnd = false
     this.lastSnapshotTick = -1
@@ -613,7 +686,8 @@ export class BattleScene extends Phaser.Scene {
     this.echoes = []
     this.projectiles = []
     this.effects = []
-    for (const fighter of this.fighters) fighter.reset()
+    for (const fighter of this.allFighters()) fighter.reset()
+    this.restoreExtraStoryEnemy()
     this.setPhase('countdown')
     this.options.room?.sendSnapshot(this.snapshot())
     this.options.onNewMatch()
@@ -633,11 +707,20 @@ export class BattleScene extends Phaser.Scene {
     const [p1, p2] = this.fighters
     this.drawBar(30, 32, p1.hp, p1.maxHp, p1.color, false)
     this.drawBar(670, 32, p2.hp, p2.maxHp, p2.color, true)
+    if (this.extraStoryEnemy) {
+      this.drawBar(670, 62, this.extraStoryEnemy.hp, this.extraStoryEnemy.maxHp, this.extraStoryEnemy.color, true)
+      this.rightText.setText(`${this.options.story?.enemyName} / 上:赤 下:桃`)
+    }
     if (this.storyAI && this.options.story?.boss) this.rightText.setText(`${this.options.story.enemyName} / 後半 ${this.storyAI.phase(p2)}`)
-    for (let n = 0; n < this.wins[0]; n++) this.hud.fillStyle(p1.color).fillCircle(44 + n * 18, 80, 6)
-    for (let n = 0; n < this.wins[1]; n++) this.hud.fillStyle(p2.color).fillCircle(916 - n * 18, 80, 6)
+    if (!this.extraStoryEnemy) {
+      for (let n = 0; n < this.wins[0]; n++) this.hud.fillStyle(p1.color).fillCircle(44 + n * 18, 80, 6)
+      for (let n = 0; n < this.wins[1]; n++) this.hud.fillStyle(p2.color).fillCircle(916 - n * 18, 80, 6)
+    }
     this.topText.setText(`${Math.ceil(this.timer / 60)}`)
-    this.challengeText.setText(this.challengeFlashFrames > 0 ? `称号チャレンジ達成！  ${this.challenge?.challenge.title}` : '')
+    this.challengeText.setText(this.challengeFlashFrames > 0 ? `称号チャレンジ達成！  ${this.challenge?.challenge.title}` :
+      this.mechanicFlashFrames > 0 ? '本体の攻撃は効かない！' :
+        this.options.story?.mechanic?.kind === 'echo_only' ? '分身の攻撃だけが有効' :
+          this.options.story?.mechanic?.kind === 'duo' ? '2人とも倒そう' : '')
     const local = this.fighters[(this.options.room?.slot ?? 1) - 1]
     const echoLabel = !local.recorder.ready()
       ? `記録中 ${Math.ceil(local.recorder.remaining() / 60)}s`
@@ -651,7 +734,7 @@ export class BattleScene extends Phaser.Scene {
     else if (this.phase === 'round_end') this.centerText.setText('ラウンド終了')
     else if (this.phase === 'match_end') this.centerText.setText('対戦終了')
     else this.centerText.setText('')
-    for (const fighter of this.fighters) {
+    for (const fighter of this.allFighters()) {
       if (fighter.shieldFrames > 0) this.attacks.lineStyle(3, fighter.color, 0.8).strokeCircle(fighter.x, fighter.y, 42)
       if (fighter.loadout.weapon !== 'blaster' && fighter.isAttacking) this.drawAttack(fighter.x, fighter.y, fighter.facing,
         fighter.loadout.weapon, fighter.color, 0.8, fighter.attackFrame, fighter.loadout.attack)
