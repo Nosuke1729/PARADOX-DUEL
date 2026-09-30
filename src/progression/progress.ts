@@ -1,6 +1,7 @@
 import { ATTACKS, CHARACTERS, DEFAULT_ATTACK, SKILLS, WEAPONS } from '../game/balance'
 import { DEFAULT_LOADOUT, type AttackStyle, type Character, type Loadout, type Skill, type Weapon } from '../game/types'
 import { chapterById, STORY_CHAPTERS, type StoryChapter } from '../story/chapters'
+import { challengeFor, titleFor } from '../story/challenges'
 import { COLORS, GEAR_CAPSULE_ITEMS, HATS, STARTER_UNLOCKS, UNLOCK_RULES, unlockRule, type UnlockCondition, type UnlockKind } from './catalog'
 
 export const PROGRESS_KEY = 'paradox-duel:progress:v1'
@@ -16,8 +17,9 @@ export interface PlayerProgress {
   characterMastery: Record<Character, MasteryProgress>
   onlineWins: number; onlineLosses: number
   characterUses: Record<Character, number>
+  earnedTitles: string[]; selectedTitle: string | null
 }
-export type ProgressEvent = { kind: 'level' | 'mastery' | 'unlock'; title: string; detail: string }
+export type ProgressEvent = { kind: 'level' | 'mastery' | 'unlock' | 'title'; title: string; detail: string }
 
 const masteryStart = (level = 0): MasteryProgress => ({ level, currentXp: 0, totalXp: 0 })
 export function newProgress(): PlayerProgress {
@@ -29,6 +31,7 @@ export function newProgress(): PlayerProgress {
     storyProgress: { clearedChapters: [], defeatedBosses: [] },
     characterMastery: { standard: masteryStart(1), light: masteryStart(), heavy: masteryStart(), hopper: masteryStart() },
     onlineWins: 0, onlineLosses: 0, characterUses: { standard: 0, light: 0, heavy: 0, hopper: 0 },
+    earnedTitles: [], selectedTitle: null,
   }
 }
 export function xpForNextLevel(level: number): number { return 100 + Math.max(0, level - 1) * 50 }
@@ -46,6 +49,9 @@ export function hydrateProgress(raw: unknown): PlayerProgress {
   progress.coins = nonnegative(source.coins)
   progress.onlineWins = nonnegative(source.onlineWins)
   progress.onlineLosses = nonnegative(source.onlineLosses)
+  progress.earnedTitles = [...new Set(names(source.earnedTitles).filter(id => Boolean(titleFor(id))))]
+  progress.selectedTitle = typeof source.selectedTitle === 'string' && progress.earnedTitles.includes(source.selectedTitle)
+    ? source.selectedTitle : null
   progress.ownedCosmetics = [...new Set(names(source.ownedCosmetics).filter(id =>
     id in COLORS && id !== 'default' && id !== 'arc_cyan' || id.startsWith('hat:') && Object.hasOwn(HATS, id.slice(4)) && id !== 'hat:none'))]
   const gearKeys = new Set(GEAR_CAPSULE_ITEMS.map(item => `${item.kind}:${item.id}`))
@@ -169,7 +175,7 @@ export function storyReward(chapter: Pick<StoryChapter, 'rewardXp' | 'rewardCoin
     { xp: Math.max(25, Math.round(chapter.rewardXp * 0.25)),
       coins: Math.max(10, Math.min(120, Math.round(chapter.rewardCoins * 0.2))) }
 }
-export function awardStoryVictory(progress: PlayerProgress, chapterId: number, character: Character): ProgressEvent[] {
+export function awardStoryVictory(progress: PlayerProgress, chapterId: number, character: Character, challengeComplete = false): ProgressEvent[] {
   const chapter = chapterById(chapterId)
   if (!chapter || !isChapterAvailable(progress, chapterId)) return []
   const firstClear = !progress.storyProgress.clearedChapters.includes(chapterId)
@@ -181,8 +187,20 @@ export function awardStoryVictory(progress: PlayerProgress, chapterId: number, c
     { kind: 'unlock', title: firstClear ? 'ステージクリア！' : 'もう一度クリア！', detail: `+${xp} XP / +${coins} コイン` },
     ...awardXp(progress, xp), ...awardMastery(progress, character, firstClear ? 75 + chapterId * 15 : 25),
   ]
+  const challenge = challengeFor(chapterId)
+  if (challengeComplete && challenge && !progress.earnedTitles.includes(challenge.id)) {
+    progress.earnedTitles.push(challenge.id)
+    progress.selectedTitle ??= challenge.id
+    progress.coins += challenge.bonusCoins
+    events.push({ kind: 'title', title: '称号を獲得！', detail: `${challenge.title} / +${challenge.bonusCoins} コイン` })
+  }
   events.push(...syncUnlocks(progress))
   return events
+}
+export function selectTitle(progress: PlayerProgress, titleId: string | null): boolean {
+  if (titleId !== null && (!titleFor(titleId) || !progress.earnedTitles.includes(titleId))) return false
+  progress.selectedTitle = titleId
+  return true
 }
 export function awardMatchResult(progress: PlayerProgress, mode: 'practice' | 'online', result: 'win' | 'loss' | 'draw', character: Character): ProgressEvent[] {
   if (mode === 'online') {

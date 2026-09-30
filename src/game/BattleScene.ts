@@ -9,6 +9,7 @@ import { EMPTY_CONTROLS, RULES, WORLD, type AttackStyle, type Controls, type Ech
 import type { InputPacket, RoomManager } from '../network/RoomManager'
 import { StoryAI } from '../story/StoryAI'
 import type { StoryChapter } from '../story/chapters'
+import { challengeFor, EchoChallengeTracker } from '../story/challenges'
 import { weaponPose } from './AttackVisual'
 
 export interface BattleOptions {
@@ -17,7 +18,7 @@ export interface BattleOptions {
   room?: RoomManager
   playerNames?: [string, string]
   loadouts: [Loadout, Loadout]
-  onMatchEnd: (message: string, result: 'win' | 'loss' | 'draw') => void
+  onMatchEnd: (message: string, result: 'win' | 'loss' | 'draw', challengeComplete: boolean) => void
   onNewMatch: () => void
   onDisconnect: () => void
   onReconnect?: () => void
@@ -36,6 +37,7 @@ export class BattleScene extends Phaser.Scene {
   private attacks!: Phaser.GameObjects.Graphics
   private topText!: Phaser.GameObjects.Text
   private centerText!: Phaser.GameObjects.Text
+  private challengeText!: Phaser.GameObjects.Text
   private bottomText!: Phaser.GameObjects.Text
   private leftText!: Phaser.GameObjects.Text
   private rightText!: Phaser.GameObjects.Text
@@ -60,10 +62,14 @@ export class BattleScene extends Phaser.Scene {
   private absenceTimer?: number
   private connectionLost = false
   private storyAI?: StoryAI
+  private challenge?: EchoChallengeTracker
+  private challengeFlashFrames = 0
 
   constructor(options: BattleOptions) {
     super('Battle')
     this.options = options
+    const challenge = options.story && challengeFor(options.story.id)
+    if (challenge) this.challenge = new EchoChallengeTracker(challenge)
   }
 
   create(): void {
@@ -96,6 +102,7 @@ export class BattleScene extends Phaser.Scene {
     const style = { fontFamily: 'monospace', color: '#eef4ff' }
     this.topText = this.add.text(480, 30, '', { ...style, fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setDepth(11)
     this.centerText = this.add.text(480, 230, '', { ...style, fontSize: '60px', fontStyle: 'bold' }).setOrigin(0.5).setDepth(11)
+    this.challengeText = this.add.text(480, 112, '', { ...style, fontSize: '22px', color: '#f0e5a0' }).setOrigin(0.5).setDepth(12)
     this.bottomText = this.add.text(480, 515, '', { ...style, fontSize: '14px' }).setOrigin(0.5).setDepth(11)
     this.leftText = this.add.text(30, 9, '', { ...style, fontSize: '12px', color: '#70efeb' }).setDepth(11)
     this.rightText = this.add.text(930, 9, '', { ...style, fontSize: '12px', color: '#ff9094' }).setOrigin(1, 0).setDepth(11)
@@ -157,6 +164,7 @@ export class BattleScene extends Phaser.Scene {
 
   private fixedStep(): void {
     this.tick++
+    if (this.challengeFlashFrames > 0) this.challengeFlashFrames--
     const local = this.inputReader.read()
     const room = this.options.room
     if (room?.slot === 2) {
@@ -267,8 +275,15 @@ export class BattleScene extends Phaser.Scene {
     }
     fighter.echoCooldown = RULES.echoCooldown
     this.echoes.push(new Echo(this, packet, fighter.loadout.weapon, fighter.loadout.character, fighter.loadout.attack, fighter.color, fighter.loadout.hat))
+    if (fighter.slot === 1) this.trackChallenge(() => this.challenge?.recordEchoSummon())
     soundFX.play('echo')
     this.options.room?.sendEvent({ kind: 'echo', echo: packet })
+  }
+
+  private trackChallenge(action: () => void): void {
+    if (!this.challenge || this.challenge.complete) return
+    action()
+    if (this.challenge.complete) this.challengeFlashFrames = 105
   }
 
   private activateSkill(fighter: Fighter, other: Fighter, authoritative: boolean): void {
@@ -333,19 +348,20 @@ export class BattleScene extends Phaser.Scene {
       if (!this.hitLedger.claim(`${projectile.id}:${target.slot}`, projectileRect(projectile.x, projectile.y),
         hurtRect(target.x, target.y), target.hurtCooldown > 0)) return true
       this.landHit(target, projectile.owner, Math.sign(projectile.vx) as -1 | 1,
-        `${projectile.id}:${target.slot}`)
+        `${projectile.id}:${target.slot}`, projectile.id.includes(':echo:') ? 'echo' : 'body')
       return false
     })
     this.projectiles = this.phase === 'playing' ? survivors : []
   }
 
-  private landHit(target: Fighter, owner: Slot, facing: -1 | 1, id: string): void {
+  private landHit(target: Fighter, owner: Slot, facing: -1 | 1, id: string, source: 'body' | 'echo'): void {
     const loadout = this.fighters[owner - 1].loadout
     const damage = damageFor(loadout, this.options.mode === 'practice' && owner === 2)
     const knock = target.hit(damage, facing, (loadout.weapon === 'blaster' ? 0.7 : 1) *
       (attackFor(loadout.weapon, loadout.attack).knockback ?? 1))
     soundFX.play(knock.blocked ? 'skill' : 'hit')
     if (!knock.blocked) this.cameras.main.shake(65, 0.003)
+    if (!knock.blocked && owner === 1 && target.slot === 2) this.trackChallenge(() => this.challenge?.recordHit(source, this.tick))
     this.options.room?.sendEvent({ kind: 'hit', matchId: this.matchId, round: this.round, id,
       target: target.slot, hp: target.hp, knockbackX: knock.x, knockbackY: knock.y, blocked: knock.blocked })
     if (target.hp <= 0) this.endRound()
@@ -364,7 +380,7 @@ export class BattleScene extends Phaser.Scene {
       const id = `${this.round}:${attacker.owner}:${attacker.source}:${attacker.attackId}:${target.slot}`
       if (!this.hitLedger.claim(id, attackRect(attacker.x, attacker.y, attacker.facing, attacker.weapon, attacker.attack),
         hurtRect(target.x, target.y), target.hurtCooldown > 0)) continue
-      this.landHit(target, attacker.owner, attacker.facing, id)
+      this.landHit(target, attacker.owner, attacker.facing, id, attacker.source === 'body' ? 'body' : 'echo')
       if (this.phase !== 'playing') break
     }
   }
@@ -389,7 +405,7 @@ export class BattleScene extends Phaser.Scene {
     if (nextPhase === 'match_end') {
       const local = this.options.room?.slot ?? 1
       const message = winner === local ? '勝利' : winner ? '敗北' : '引き分け'
-      this.options.onMatchEnd(message, winner === local ? 'win' : winner ? 'loss' : 'draw')
+      this.options.onMatchEnd(message, winner === local ? 'win' : winner ? 'loss' : 'draw', this.challenge?.complete ?? false)
     }
   }
 
@@ -540,7 +556,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.announcedMatchEnd) return
     this.announcedMatchEnd = true
     const won = this.wins[1] > this.wins[0]
-    this.options.onMatchEnd(won ? '勝利' : '敗北', won ? 'win' : 'loss')
+    this.options.onMatchEnd(won ? '勝利' : '敗北', won ? 'win' : 'loss', false)
   }
 
   private onPresence(count: number): void {
@@ -586,6 +602,8 @@ export class BattleScene extends Phaser.Scene {
     this.timer = RULES.roundFrames
     this.phaseFrames = RULES.countdownFrames
     this.hitLedger.clear()
+    this.challenge?.reset()
+    this.challengeFlashFrames = 0
     this.rematchReady.clear()
     this.announcedMatchEnd = false
     this.lastSnapshotTick = -1
@@ -619,6 +637,7 @@ export class BattleScene extends Phaser.Scene {
     for (let n = 0; n < this.wins[0]; n++) this.hud.fillStyle(p1.color).fillCircle(44 + n * 18, 80, 6)
     for (let n = 0; n < this.wins[1]; n++) this.hud.fillStyle(p2.color).fillCircle(916 - n * 18, 80, 6)
     this.topText.setText(`${Math.ceil(this.timer / 60)}`)
+    this.challengeText.setText(this.challengeFlashFrames > 0 ? `称号チャレンジ達成！  ${this.challenge?.challenge.title}` : '')
     const local = this.fighters[(this.options.room?.slot ?? 1) - 1]
     const echoLabel = !local.recorder.ready()
       ? `記録中 ${Math.ceil(local.recorder.remaining() / 60)}s`

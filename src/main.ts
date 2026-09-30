@@ -7,10 +7,11 @@ import { drawFighterPreview } from './game/FighterArt'
 import { RoomManager } from './network/RoomManager'
 import { CloudProgress } from './progression/cloud'
 import { COLORS, HATS, type UnlockKind } from './progression/catalog'
-import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, storyReward, xpForNextLevel, type ProgressEvent } from './progression/progress'
+import { awardMatchResult, awardStoryVictory, canUse, favoriteCharacter, isChapterAvailable, loadProgress, lockHint, recordCharacterUse, sanitizeLoadout, selectTitle, storyReward, xpForNextLevel, type ProgressEvent } from './progression/progress'
 import { RankedService, type RankedMatch, type RankedStats } from './ranked/RankedService'
 import { rankTier } from './ranked/rating'
 import { STORY_CHAPTERS, type Difficulty, type StoryChapter } from './story/chapters'
+import { challengeFor, ECHO_CHALLENGES, titleFor } from './story/challenges'
 import { buyColor, buyHat, CAPSULE_COLORS, CAPSULE_PRICE, colorName, drawCapsule, drawGearCapsule, DUPLICATE_REFUND_PERCENT, GEAR_CAPSULE_PRICE, gearCapsulePool, gearName, SHOP_COLORS } from './shop/catalog'
 import './style.css'
 
@@ -22,7 +23,7 @@ app.innerHTML = `
         <p class="tagline">4秒前の自分が、ちょっと助けに来る。</p>
         <p class="intro">自分の動きを4秒間記録して、分身として呼び出せる2D対戦アクションです。分身も走って、跳んで、攻撃します。AIと練習したり、友だちやほかのプレイヤーと対戦したりできます。</p>
         <div class="how-to" aria-label="このゲームの遊び方"><span>① 動いて攻撃</span><span>② Lキーで分身</span><span>③ いっしょに挟み撃ち</span></div>
-        <p class="level-strip" id="menu-level"></p>
+        <p class="level-strip" id="menu-level"></p><p class="menu-title" id="menu-title"></p>
       </div>
       <nav class="menu-panel" aria-label="メインメニュー">
         <div class="loadout-heading"><span>あそぶ</span></div>
@@ -54,7 +55,8 @@ app.innerHTML = `
       <div class="shop-capsule"><div><strong>装備カプセル</strong><p>武器・攻撃・スキルから抽選。攻撃は対応する武器を持つと候補に入ります。重複しても引けます。</p><p id="gear-capsule-odds"></p></div><button id="gear-capsule-draw" class="button primary"></button></div>
       <p id="shop-status" class="status" role="status"></p></section>
     <section id="profile" class="page hidden"><div class="page-head"><div><h2>プロフィール</h2><p>レベルや戦績のまとめです。ログイン中はクラウドにも保存されます。</p></div><button class="button secondary back-menu">← メニュー</button></div><div id="profile-data" class="profile-grid"></div>
-      <p class="profile-future">実績・称号・対戦履歴は準備中です。</p></section>
+      <section class="title-section" aria-labelledby="title-heading"><h3 id="title-heading">称号</h3><p id="active-title"></p><div id="title-choices" class="title-choices"></div></section>
+      <p class="profile-future">実績・対戦履歴は準備中です。</p></section>
     <section id="account" class="page hidden"><div class="page-head"><div><h2>アカウント</h2><p>ログインすると、別の端末でも同じ続きから遊べます。</p></div><button class="button secondary back-menu">← メニュー</button></div>
       <div class="account-panel"><div id="account-signed-out"><h3>ログインしていません</h3><div class="account-switch"><button id="auth-signup-mode" class="button secondary">新規登録</button><button id="auth-login-mode" class="button secondary">ログイン</button></div>
         <form id="auth-form"><label for="auth-email">メールアドレス</label><input id="auth-email" type="email" required autocomplete="email">
@@ -135,6 +137,7 @@ function currentLoadout(): Loadout {
 }
 function renderMenu(): void {
   byId('menu-level').textContent = `レベル ${progress.playerLevel}  ·  ${progress.currentXp} / ${xpForNextLevel(progress.playerLevel)} XP  ·  ${progress.coins} コイン  ·  ${cloud.identity?.username ?? 'ゲスト'}`
+  byId('menu-title').textContent = progress.selectedTitle ? `称号：${titleFor(progress.selectedTitle)?.title ?? 'なし'}` : ''
 }
 const groupNames: Record<UnlockKind, string> = {
   character: 'キャラ', weapon: '武器', attack: '技', skill: 'スキル', color: '色', hat: '帽子',
@@ -234,6 +237,11 @@ function renderStory(): void {
     const eyebrow = document.createElement('p'); eyebrow.className = 'eyebrow'; eyebrow.textContent = `ステージ ${chapter.id}${chapter.boss ? ' ・ ボス戦' : ''}`
     const title = document.createElement('h3'); title.textContent = chapter.title
     const briefing = document.createElement('p'); briefing.textContent = chapter.briefing
+    const challenge = challengeFor(chapter.id)
+    const challengeNote = document.createElement('p'); challengeNote.className = 'chapter-challenge'
+    if (challenge) challengeNote.textContent = progress.earnedTitles.includes(challenge.id)
+      ? `称号「${challenge.title}」獲得済み`
+      : `称号チャレンジ：${challenge.objective} ／ 「${challenge.title}」＋${challenge.bonusCoins}コイン`
     const firstClear = !progress.storyProgress.clearedChapters.includes(chapter.id)
     const reward = storyReward(chapter, firstClear)
     const enemy = document.createElement('p'); enemy.className = 'chapter-meta'; enemy.textContent = `相手：${chapter.enemyName}  ·  ${firstClear ? '初回' : '再クリア'}報酬：${reward.xp} XP / ${reward.coins} コイン`
@@ -245,7 +253,9 @@ function renderStory(): void {
       const difficulty: Difficulty = selectedDifficulty === 'recommended' ? chapter.difficulty : selectedDifficulty as Difficulty
       startBattle('story', [currentLoadout(), chapter.enemy], { ...chapter, difficulty })
     })
-    card.append(eyebrow, title, briefing, enemy, button); list.append(card)
+    card.append(eyebrow, title, briefing)
+    if (challenge) card.append(challengeNote)
+    card.append(enemy, button); list.append(card)
   }
 }
 function renderShop(): void {
@@ -327,6 +337,27 @@ async function renderProfile(): Promise<void> {
     const name = document.createElement('span'); name.textContent = label
     const amount = document.createElement('strong'); amount.textContent = value
     cell.append(name, amount); data.append(cell)
+  }
+  renderTitleChoices()
+}
+function renderTitleChoices(): void {
+  byId('active-title').textContent = `表示中：${progress.selectedTitle ? titleFor(progress.selectedTitle)?.title ?? 'なし' : 'なし'}`
+  const list = byId('title-choices'); list.replaceChildren()
+  for (const option of [{ id: null, title: 'なし', objective: '称号を表示しない' }, ...ECHO_CHALLENGES]) {
+    const owned = option.id === null || progress.earnedTitles.includes(option.id)
+    const button = document.createElement('button')
+    button.type = 'button'; button.className = `title-choice${progress.selectedTitle === option.id ? ' is-selected' : ''}`
+    button.disabled = !owned
+    const name = document.createElement('strong'); name.textContent = option.title
+    const description = document.createElement('span'); description.textContent = owned
+      ? progress.selectedTitle === option.id ? '表示中' : '選んで表示する'
+      : `🔒 ステージ${'chapterId' in option ? option.chapterId : ''}：${option.objective}`
+    button.append(name, description)
+    if (owned) button.addEventListener('click', () => {
+      if (!selectTitle(progress, option.id)) return
+      persist(); renderTitleChoices()
+    })
+    list.append(button)
   }
 }
 function setAuthMode(mode: 'signup' | 'login'): void {
@@ -490,9 +521,9 @@ function startBattle(mode: 'practice' | 'online' | 'story' | 'ranked', loadouts:
   showScreen('arena')
   battle = new BattleScene({
     mode: mode === 'ranked' ? 'online' : mode, room, story, loadouts, playerNames: mode === 'ranked' ? rankedNames : undefined,
-    onMatchEnd(message, result) {
+    onMatchEnd(message, result, challengeComplete) {
       const events = mode === 'story' && story && result === 'win'
-        ? awardStoryVictory(progress, story.id, mine.character)
+        ? awardStoryVictory(progress, story.id, mine.character, challengeComplete)
         : mode !== 'story' ? awardMatchResult(progress, mode === 'ranked' ? 'online' : mode, result, mine.character) : []
       persist()
       byId('dialog-title').textContent = mode === 'ranked' ? '結果を確認中' : mode === 'story' && result === 'win' ? 'ステージクリア！' : message

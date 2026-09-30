@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { attackCycleFrames, attackFor, CHARACTERS, damageFor, isLoadout, nextAirJumpUse, winnerByHealth } from '../src/game/balance'
 import { STORY_CHAPTERS } from '../src/story/chapters'
+import { challengeFor, EchoChallengeTracker } from '../src/story/challenges'
 import { StoryAI } from '../src/story/StoryAI'
-import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, storyReward, xpForNextLevel } from '../src/progression/progress'
+import { awardStoryVictory, canUse, hydrateProgress, isChapterAvailable, loadProgress, newProgress, PROGRESS_KEY, sanitizeLoadout, saveProgress, selectTitle, storyReward, xpForNextLevel } from '../src/progression/progress'
 
 test('new pilots start with only NORMAL, SWORD, BLINK and BASIC SLASH', () => {
   const progress = newProgress()
@@ -167,4 +168,50 @@ test('HOPPER has one extra air jump and unlocks after its story boss', () => {
   assert.equal(restored.selectedLoadout.character, 'hopper')
   assert.equal(restored.characterMastery.hopper.level, 1)
   assert.equal(sanitizeLoadout(newProgress(), { character: 'hopper', weapon: 'sword', skill: 'blink' }).character, 'standard')
+})
+
+test('Echo title challenges track actual summons and hits within the time window', () => {
+  const first = new EchoChallengeTracker(challengeFor(1)!)
+  assert.equal(first.complete, false)
+  first.recordEchoSummon()
+  assert.equal(first.complete, true)
+  first.reset()
+  assert.equal(first.complete, false)
+
+  const strike = new EchoChallengeTracker(challengeFor(3)!)
+  strike.recordHit('body', 20)
+  assert.equal(strike.complete, false)
+  strike.recordHit('echo', 30)
+  assert.equal(strike.complete, true)
+
+  const partner = new EchoChallengeTracker(challengeFor(5)!)
+  partner.recordHit('body', 10)
+  partner.recordHit('echo', 131)
+  assert.equal(partner.complete, false)
+  partner.recordHit('body', 250)
+  assert.equal(partner.complete, true)
+  partner.reset()
+  partner.recordHit('echo', 100)
+  partner.recordHit('body', 220)
+  assert.equal(partner.complete, true)
+})
+
+test('story titles and bonus coins are granted once and survive reload', () => {
+  const progress = newProgress()
+  awardStoryVictory(progress, 1, 'standard')
+  assert.deepEqual(progress.earnedTitles, [])
+  const events = awardStoryVictory(progress, 1, 'standard', true)
+  assert.ok(events.some(event => event.kind === 'title' && event.detail.includes('分身デビュー')))
+  assert.equal(progress.coins, 60 + 12 + 30)
+  assert.deepEqual(progress.earnedTitles, ['first_echo'])
+  assert.equal(progress.selectedTitle, 'first_echo')
+  awardStoryVictory(progress, 1, 'standard', true)
+  assert.equal(progress.coins, 60 + 12 + 30 + 12)
+  assert.equal(selectTitle(progress, 'not_a_title'), false)
+  assert.equal(selectTitle(progress, null), true)
+  assert.equal(selectTitle(progress, 'first_echo'), true)
+  const restored = hydrateProgress(JSON.parse(JSON.stringify(progress)))
+  assert.deepEqual(restored.earnedTitles, ['first_echo'])
+  assert.equal(restored.selectedTitle, 'first_echo')
+  assert.equal(hydrateProgress({ earnedTitles: ['not_a_title'], selectedTitle: 'not_a_title' }).selectedTitle, null)
 })
